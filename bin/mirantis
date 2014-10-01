@@ -12,42 +12,66 @@ DOCKER_DEVICEMAPPER_PATH = '/var/lib/docker/devicemapper/mnt/'
 DEFAULT_CONTAINER = 'nailgun'
 
 
-def target_dir(container):
-    if container == 'nailgun':
+class DockerCommand(object):
+    container = None
+
+    def execute(self, command, args):
+        if command == 'id':
+            print(self.get_docker_id())
+
+        elif command == 'dir':
+            print(self.get_container_directory())
+
+        elif command == 'rsync':
+            source = args.source or '.'
+
+            self.perform_docker_rsync(source)
+
+        else:
+            raise NotImplementedError('Unknown command')
+
+    def target_dir(self):
+        raise NotImplementedError('target_dir not implemented for base class')
+
+    def get_docker_id(self):
+        return check_output([
+            'ssh', 'root@%s' % IP, '-C', 'docker ps | grep -i %s | cut -f 1 -d " "' % self.container
+        ]).strip()
+
+    def get_container_directory(self):
+        iid = self.get_docker_id()
+
+        paths = check_output([
+            'ssh', 'root@%s' % IP, '-C', 'ls %s | grep %s' % (DOCKER_DEVICEMAPPER_PATH, iid)
+        ])
+
+        return os.path.join(DOCKER_DEVICEMAPPER_PATH, paths.split()[0])
+
+    def perform_docker_rsync(self, source):
+        result = check_output([
+            'rsync', '-avz', '-e', 'ssh', source, 'root@%s:%s' % (IP, self.target_dir())
+        ])
+
+        print(result)
+
+        # post rsync tasks
+        self.post_docker_rsync()
+
+    def post_docker_rsync(self):
+        pass
+
+
+class NailgunDockerCommand(DockerCommand):
+    container = 'nailgun'
+
+    def target_dir(self):
         return os.path.join(
-            get_container_directory(container),
+            self.get_container_directory(),
             'rootfs',
             'usr/lib/python2.6/site-packages/nailgun'
         )
-    else:
-        raise NotImplementedError
 
-
-def get_docker_id(container):
-    return check_output([
-        'ssh', 'root@%s' % IP, '-C', 'docker ps | grep -i %s | cut -f 1 -d " "' % container
-    ]).strip()
-
-
-def get_container_directory(container):
-    iid = get_docker_id(container)
-
-    paths = check_output([
-        'ssh', 'root@%s' % IP, '-C', 'ls %s | grep %s' % (DOCKER_DEVICEMAPPER_PATH, iid)
-    ])
-
-    return os.path.join(DOCKER_DEVICEMAPPER_PATH, paths.split()[0])
-
-
-def perform_docker_rsync(container, source):
-    result = check_output([
-        'rsync', '-avz', '-e', 'ssh', source, 'root@%s:%s' % (IP, target_dir(container))
-    ])
-
-    print(result)
-
-    # post rsync tasks
-    if container == 'nailgun':
+    def post_docker_rsync(self):
         result = check_output([
             'ssh', 'root@%s' % IP, '-C', 'supervisorctl restart docker-nailgun'
         ])
@@ -62,22 +86,14 @@ def handle_args(args):
     if command == 'docker':
         subcommand = arguments[0]
 
-        container = args.container
-        if container is None:
-            container = DEFAULT_CONTAINER
+        container = args.container or DEFAULT_CONTAINER
 
-        if subcommand == 'id':
-            print(get_docker_id(container))
+        if container == 'nailgun':
+            executor = NailgunDockerCommand()
+        else:
+            raise NotImplementedError('Unsupported Docker container')
 
-        elif subcommand == 'dir':
-            print(get_container_directory(container))
-
-        elif subcommand == 'rsync':
-            source = args.source
-            if source is None:
-                source = '.'
-
-            perform_docker_rsync(container, source)
+        executor.execute(subcommand, args)
 
 
 if __name__ == '__main__':
