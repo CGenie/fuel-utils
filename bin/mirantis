@@ -2,7 +2,7 @@
 
 import argparse
 import os
-from subprocess import check_output
+from subprocess import call, check_output
 
 
 IP = '10.20.0.2'
@@ -10,6 +10,26 @@ IP = '10.20.0.2'
 DOCKER_DEVICEMAPPER_PATH = '/var/lib/docker/devicemapper/mnt/'
 
 DEFAULT_CONTAINER = 'nailgun'
+
+IDENTITY_FILE = os.path.join(os.environ['HOME'], '.ssh', 'id_rsa.openstack')
+
+
+def ssh_command(*args):
+    print("COMMAND: %r" % list(args))
+
+    commands = ['ssh', 'root@%s' % IP, '-i', IDENTITY_FILE, '-C'] + list(args)
+
+    return check_output(commands).strip()
+
+
+# TOOD: doesn't work yet, probably non-blocking pipes will be needed
+#       http://stackoverflow.com/questions/19880190/interactive-input-output-using-python
+def ssh_command_call(*args):
+    print("COMMAND: %r" % list(args))
+
+    commands = ['ssh', 'root@%s' % IP, '-i', IDENTITY_FILE, '-C'] + list(args)
+
+    return call(commands, shell=True)
 
 
 class DockerCommand(object):
@@ -23,53 +43,82 @@ class DockerCommand(object):
             print(self.get_container_directory())
 
         elif command == 'rsync':
-            source = args.source or '.'
+            source = args.source or './'
 
             self.perform_docker_rsync(source)
+
+        elif command == 'ssh':
+            ssh_command('/bin/bash')
 
         else:
             raise NotImplementedError('Unknown command')
 
-    def target_dir(self):
-        raise NotImplementedError('target_dir not implemented for base class')
-
     def get_docker_id(self):
-        return check_output([
-            'ssh', 'root@%s' % IP, '-C', 'docker ps | grep -i %s | cut -f 1 -d " "' % self.container
-        ]).strip()
+        return ssh_command('docker ps | grep -i %s | cut -f 1 -d " "' % self.container).decode('utf-8')
 
     def get_container_directory(self):
         iid = self.get_docker_id()
 
-        paths = check_output([
-            'ssh', 'root@%s' % IP, '-C', 'ls %s | grep %s' % (DOCKER_DEVICEMAPPER_PATH, iid)
-        ])
+        paths = ssh_command('ls %s | grep %s' % (DOCKER_DEVICEMAPPER_PATH, iid)).decode('utf-8')
 
         return os.path.join(DOCKER_DEVICEMAPPER_PATH, paths.split()[0])
 
     def perform_docker_rsync(self, source):
-        result = check_output([
-            'rsync', '-avz', '-e', 'ssh', source, 'root@%s:%s' % (IP, self.target_dir())
-        ])
-
-        print(result)
-
-        # post rsync tasks
-        self.post_docker_rsync()
-
-    def post_docker_rsync(self):
-        pass
+        raise NotImplementedError('rsync method not implemented')
 
 
 class NailgunDockerCommand(DockerCommand):
     container = 'nailgun'
 
-    def target_dir(self):
-        return os.path.join(
+    temporary_build_dir = 'built-static'
+
+    # from source (relative to main fuel-web dir) to target
+    # (relative to docker container's root)
+    target_dir_mapping = {
+        'nailgun/nailgun': 'usr/lib/python2.6/site-packages/nailgun',
+        'nailgun/%s' % temporary_build_dir: 'usr/share/nailgun/static',
+    }
+
+    def perform_docker_rsync(self, source_dir):
+        # TODO: add an option do to this
+        self.build_grunt_statics(source_dir)
+
+        base_target_dir = os.path.join(
             self.get_container_directory(),
-            'rootfs',
-            'usr/lib/python2.6/site-packages/nailgun'
+            'rootfs'
         )
+
+        for source_path, target_path in self.target_dir_mapping.items():
+            source = os.path.join(source_dir, source_path)
+            target = 'root@%s:%s' % (IP, os.path.join(base_target_dir, target_path))
+
+            print('RSYNC: %s --> %s' % (source, target))
+
+            result = check_output([
+                'rsync', '-avz', '-e', 'ssh', source, target
+            ])
+
+            print(result.decode('utf-8'))
+
+        # post rsync tasks
+        self.post_docker_rsync()
+
+    def build_grunt_statics(self, source_dir):
+        cwd = os.path.join(source_dir, 'nailgun')
+
+        cmd = (
+            'cd %(cwd)s && '
+            'grunt build --static-dir=%(temporary_build_dir)s'
+        ) % {
+                'cwd': cwd,
+                'temporary_build_dir': self.temporary_build_dir,
+            }
+
+        result = check_output([
+            cmd
+        ], shell=True)
+
+        print(result)
 
     def post_docker_rsync(self):
         result = check_output([
@@ -77,6 +126,21 @@ class NailgunDockerCommand(DockerCommand):
         ])
 
         print(result)
+
+        # TODO: remove built-statics dir
+
+
+class KeystoneDockerCommand(DockerCommand):
+    container = 'keystone'
+
+    def target_dir(self):
+        return os.path.join(
+            self.get_container_directory(),
+            'rootfs'
+        )
+
+    def post_docker_rsync(self):
+        raise NotImplementedError('No rsync for keystone')
 
 
 def handle_args(args):
@@ -90,10 +154,20 @@ def handle_args(args):
 
         if container == 'nailgun':
             executor = NailgunDockerCommand()
+        elif container == 'keystone':
+            executor = KeystoneDockerCommand()
         else:
             raise NotImplementedError('Unsupported Docker container')
 
         executor.execute(subcommand, args)
+
+    elif command == 'send-identity':
+        with open('%s.pub' % IDENTITY_FILE) as f:
+            contents = f.read()
+
+        result = ssh_command("echo '%s' >> ~/.ssh/authorized_keys" % contents)
+
+        print(result)
 
 
 if __name__ == '__main__':
