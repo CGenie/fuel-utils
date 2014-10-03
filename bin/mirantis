@@ -1,12 +1,14 @@
 #!/usr/bin/env python
 
 import argparse
+import json
 import os
 from subprocess import call, check_output
 
 
 IP = '10.20.0.2'
 
+DOCKER_CONTAINER_PATH = '/var/lib/docker/containers/'
 DOCKER_DEVICEMAPPER_PATH = '/var/lib/docker/devicemapper/mnt/'
 
 DEFAULT_CONTAINER = 'nailgun'
@@ -14,6 +16,9 @@ DEFAULT_CONTAINER = 'nailgun'
 IDENTITY_FILE = os.path.join(os.environ['HOME'], '.ssh', 'id_rsa.openstack')
 
 
+# TODO: test if key is added to .authorized_keys with
+# ssh root@10.20.0.2 -o PasswordAuthentication=no -C 'echo 1'
+# (see the exit code of this script)
 def ssh_command(*args):
     print("COMMAND: %r" % list(args))
 
@@ -39,13 +44,20 @@ class DockerCommand(object):
         if command == 'id':
             print(self.get_docker_id())
 
+        elif command == 'config':
+            print(json.dumps(self.get_container_config(), indent=2))
+
         elif command == 'dir':
             print(self.get_container_directory())
 
         elif command == 'rsync':
-            source = args.source or './'
+            self.perform_docker_rsync(args)
 
-            self.perform_docker_rsync(source)
+        elif command == 'rsync-statics':
+            self.perform_docker_rsync_statics(args)
+
+        elif command == 'volumes':
+            print(json.dumps(self.get_container_config().get('Volumes', {}), indent=2))
 
         elif command == 'ssh':
             ssh_command('/bin/bash')
@@ -56,6 +68,20 @@ class DockerCommand(object):
     def get_docker_id(self):
         return ssh_command('docker ps | grep -i %s | cut -f 1 -d " "' % self.container).decode('utf-8')
 
+    def get_container_config(self):
+        d = self.get_container_config_directory()
+
+        config = ssh_command('cat %s/config.json' % d).decode('utf-8')
+
+        return json.loads(config)
+
+    def get_container_config_directory(self):
+        iid = self.get_docker_id()
+
+        paths = ssh_command('ls %s | grep %s' % (DOCKER_CONTAINER_PATH, iid)).decode('utf-8')
+
+        return os.path.join(DOCKER_CONTAINER_PATH, paths.split()[0])
+
     def get_container_directory(self):
         iid = self.get_docker_id()
 
@@ -63,48 +89,102 @@ class DockerCommand(object):
 
         return os.path.join(DOCKER_DEVICEMAPPER_PATH, paths.split()[0])
 
-    def perform_docker_rsync(self, source):
+    def perform_docker_rsync(self, source, args):
         raise NotImplementedError('rsync method not implemented')
+
+    def perform_docker_rsync_statics(self, source, args):
+        raise NotImplementedError('rsync-statics method not implemented')
+
+    def base_docker_rsync(self, source, target):
+        base_target_dir = os.path.join(
+            self.get_container_directory(),
+            'rootfs'
+        )
+
+        print('RSYNC: %s --> %s' % (source, target))
+
+        result = check_output([
+            'rsync', '-avz', '-e', 'ssh', source, target
+        ])
+
+        print(result.decode('utf-8'))
+
+        # post rsync tasks
+        self.post_docker_rsync()
+
+    def post_docker_rsync(self):
+        result = check_output([
+            'ssh', 'root@%s' % IP, '-C', 'supervisorctl restart docker-%s' % self.container
+        ])
+
+        print(result)
+
+
+class KeystoneDockerCommand(DockerCommand):
+    container = 'keystone'
+
+
+class McollectiveDockerCommand(DockerCommand):
+    container = 'mcollective'
 
 
 class NailgunDockerCommand(DockerCommand):
     container = 'nailgun'
 
-    temporary_build_dir = 'built-static'
+    def perform_docker_rsync(self, args):
+        source_dir = args.source
 
-    # from source (relative to main fuel-web dir) to target
-    # (relative to docker container's root)
-    target_dir_mapping = {
-        'nailgun/nailgun': 'usr/lib/python2.6/site-packages/nailgun',
-        'nailgun/%s' % temporary_build_dir: 'usr/share/nailgun/static',
-    }
+        source_path = 'nailgun/nailgun'
+        target_path = 'usr/lib/python2.6/site-packages/nailgun'
 
-    def perform_docker_rsync(self, source_dir):
-        # TODO: add an option do to this
-        self.build_grunt_statics(source_dir)
+        if args.grunt:
+            self.build_grunt_statics(source_dir)
 
         base_target_dir = os.path.join(
             self.get_container_directory(),
             'rootfs'
         )
 
-        for source_path, target_path in self.target_dir_mapping.items():
-            source = os.path.join(source_dir, source_path)
-            target = 'root@%s:%s' % (IP, os.path.join(base_target_dir, target_path))
+        source = os.path.join(source_dir, source_path)
+        target = 'root@%s:%s' % (IP, os.path.join(base_target_dir, target_path))
 
-            print('RSYNC: %s --> %s' % (source, target))
+        self.base_docker_rsync(source, target)
 
-            result = check_output([
-                'rsync', '-avz', '-e', 'ssh', source, target
-            ])
+    def perform_docker_rsync_statics(self, args):
+        nginx_command = NginxDockerCommand()
 
-            print(result.decode('utf-8'))
+        return nginx_command.perform_docker_rsync_statics(args)
 
-        # post rsync tasks
-        self.post_docker_rsync()
+
+class NginxDockerCommand(DockerCommand):
+    container = 'nginx'
+
+    temporary_build_dir = 'built/static'
+
+    def perform_docker_rsync_statics(self, args):
+        source_dir = args.source
+
+        # NOTE: slash at the end is important in source_path!
+        source_path = 'nailgun/%s/' % self.temporary_build_dir
+
+        if args.grunt:
+            self.build_grunt_statics(source_dir)
+
+        config = self.get_container_config()
+        target_dir = config['Volumes']['/usr/share/nailgun/static']
+
+        source = os.path.join(source_dir, source_path)
+        target = 'root@%s:%s' % (IP, target_dir)
+
+        self.base_docker_rsync(source, target)
 
     def build_grunt_statics(self, source_dir):
         cwd = os.path.join(source_dir, 'nailgun')
+
+        print('Building grunt statics in %s, temporary static dir is: %s...' % (
+            cwd,
+            self.temporary_build_dir
+            ))
 
         cmd = (
             'cd %(cwd)s && '
@@ -120,28 +200,6 @@ class NailgunDockerCommand(DockerCommand):
 
         print(result)
 
-    def post_docker_rsync(self):
-        result = check_output([
-            'ssh', 'root@%s' % IP, '-C', 'supervisorctl restart docker-nailgun'
-        ])
-
-        print(result)
-
-        # TODO: remove built-statics dir
-
-
-class KeystoneDockerCommand(DockerCommand):
-    container = 'keystone'
-
-    def target_dir(self):
-        return os.path.join(
-            self.get_container_directory(),
-            'rootfs'
-        )
-
-    def post_docker_rsync(self):
-        raise NotImplementedError('No rsync for keystone')
-
 
 def handle_args(args):
     command = args.command[0]
@@ -152,10 +210,14 @@ def handle_args(args):
 
         container = args.container or DEFAULT_CONTAINER
 
-        if container == 'nailgun':
-            executor = NailgunDockerCommand()
-        elif container == 'keystone':
+        if container == 'keystone':
             executor = KeystoneDockerCommand()
+        elif container == 'nailgun':
+            executor = NailgunDockerCommand()
+        elif container == 'nginx':
+            executor = NginxDockerCommand()
+        elif container == 'mcollective':
+            executor = McollectiveDockerCommand()
         else:
             raise NotImplementedError('Unsupported Docker container')
 
@@ -169,13 +231,17 @@ def handle_args(args):
 
         print(result)
 
+    else:
+        raise NotImplementedError('Unknown command')
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Mirantis helper script')
 
     parser.add_argument('command', type=str, nargs='+')
     parser.add_argument('--container', type=str, nargs='?')
-    parser.add_argument('--source', type=str, nargs='?')
+    parser.add_argument('--source', type=str, nargs='?', default='.')
+    parser.add_argument('--grunt', type=bool, nargs='?', default=False)  # TODO; move this to 'docker' nailgun subparser
 
     args = parser.parse_args()
 
