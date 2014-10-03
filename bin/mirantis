@@ -241,7 +241,7 @@ if __name__ == '__main__':
     parser.add_argument('command', type=str, nargs='+')
     parser.add_argument('--container', type=str, nargs='?')
     parser.add_argument('--source', type=str, nargs='?', default='.')
-    parser.add_argument('--grunt', type=bool, nargs='?', default=False)  # TODO; move this to 'docker' nailgun subparser
+    parser.add_argument('--grunt', action='store_true', default=False)  # TODO; move this to 'docker' nailgun subparser
 
     args = parser.parse_args()
 
