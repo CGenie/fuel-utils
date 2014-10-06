@@ -52,6 +52,17 @@ def ssh_command_call(*args):
     return call(commands, shell=True)
 
 
+def send_identity():
+    with open('%s.pub' % IDENTITY_FILE) as f:
+        contents = f.read()
+
+    result = ssh_command("echo '%s' >> ~/.ssh/authorized_keys" % contents)
+
+    print(result)
+
+    return result
+
+
 class DockerCommand(object):
     container = None
 
@@ -73,6 +84,9 @@ class DockerCommand(object):
 
         elif command == 'volumes':
             print(json.dumps(self.get_container_config().get('Volumes', {}), indent=2))
+
+        elif command == 'send-identity':
+            send_identity()
 
         elif command == 'ssh':
             ssh_command('/bin/bash')
@@ -216,24 +230,11 @@ class NginxDockerCommand(DockerCommand):
         print(result)
 
 
-def send_identity():
-    with open('%s.pub' % IDENTITY_FILE) as f:
-        contents = f.read()
-
-    result = ssh_command("echo '%s' >> ~/.ssh/authorized_keys" % contents)
-
-    print(result)
-
-    return result
-
-
 def handle_args(args):
-    command = args.command[0]
-    arguments = args.command[1:]
+    command = args.command
+    subcommand = args.subcommand
 
     if command == 'docker':
-        subcommand = arguments[0]
-
         container = args.container or DEFAULT_CONTAINER
 
         if container == 'keystone':
@@ -249,9 +250,6 @@ def handle_args(args):
 
         executor.execute(subcommand, args)
 
-    elif command == 'send-identity':
-        send_identity()
-
     else:
         raise NotImplementedError('Unknown command')
 
@@ -259,10 +257,34 @@ def handle_args(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Mirantis helper script')
 
-    parser.add_argument('command', type=str, nargs='+')
-    parser.add_argument('--container', '-c', type=str, nargs='?')
-    parser.add_argument('--source', '-s', type=str, nargs='?', default='.')
-    parser.add_argument('--grunt', action='store_true', default=False)  # TODO; move this to 'docker' nailgun subparser
+    subcommand = parser.add_subparsers(
+        title='command', 
+        description='Command to execute',
+        dest='command'
+    )
+
+    docker = subcommand.add_parser('docker', help='Docker container manipulation')
+
+    docker.add_argument('--container', '-c', type=str, nargs='?')
+    docker.add_argument('--source', '-s', type=str, nargs='?', default='.')
+    docker.add_argument('--grunt', action='store_true', default=False)  # TODO; move this to 'docker' nailgun subparser
+
+    docker_subcommand = docker.add_subparsers(
+        title='subcommand',
+        description='Docker command to execute',
+        dest='subcommand'
+    )
+
+    #docker_subcommand_parser = docker_subcommand.add_parser('command')
+
+    docker_subcommand.add_parser('id')
+    docker_subcommand.add_parser('config')
+    docker_subcommand.add_parser('dir')
+    docker_subcommand.add_parser('rsync')
+    docker_subcommand.add_parser('rsync-static')
+    docker_subcommand.add_parser('volumes')
+    docker_subcommand.add_parser('send-identity')
+    docker_subcommand.add_parser('ssh')
 
     args = parser.parse_args()
 
