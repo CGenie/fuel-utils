@@ -166,9 +166,6 @@ class NailgunDockerCommand(DockerCommand):
         source_path = 'nailgun/nailgun'
         target_path = 'usr/lib/python2.6/site-packages/nailgun'
 
-        if args.grunt:
-            self.build_grunt_static(source_dir)
-
         base_target_dir = os.path.join(
             self.get_container_directory(),
             'rootfs'
@@ -267,7 +264,6 @@ if __name__ == '__main__':
 
     docker.add_argument('--container', '-c', type=str, nargs='?')
     docker.add_argument('--source', '-s', type=str, nargs='?', default='.')
-    docker.add_argument('--grunt', action='store_true', default=False)  # TODO; move this to 'docker' nailgun subparser
 
     docker_subcommand = docker.add_subparsers(
         title='subcommand',
@@ -281,7 +277,10 @@ if __name__ == '__main__':
     docker_subcommand.add_parser('config')
     docker_subcommand.add_parser('dir')
     docker_subcommand.add_parser('rsync')
-    docker_subcommand.add_parser('rsync-static')
+    docker_subcommand_rsync_static = docker_subcommand.add_parser('rsync-static')
+    docker_subcommand_rsync_static.add_argument(
+        '--grunt', action='store_true', default=False
+    )
     docker_subcommand.add_parser('volumes')
     docker_subcommand.add_parser('send-identity')
     docker_subcommand.add_parser('ssh')
