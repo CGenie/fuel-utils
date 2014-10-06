@@ -123,9 +123,6 @@ class DockerCommand(object):
         elif command == 'send-identity':
             send_identity()
 
-        elif command == 'ssh':
-            ssh_command_interactive('/bin/bash')
-
         else:
             raise NotImplementedError('Unknown command')
 
@@ -271,9 +268,10 @@ class NginxDockerCommand(DockerCommand):
 
 def handle_args(args):
     command = args.command
-    subcommand = args.subcommand
 
     if command == 'docker':
+        subcommand = args.subcommand
+
         container = args.container or DEFAULT_CONTAINER
 
         if container == 'keystone':
@@ -289,6 +287,9 @@ def handle_args(args):
 
         executor.execute(subcommand, args)
 
+    elif command == 'ssh':
+        ssh_command_interactive('/bin/bash')
+
     else:
         raise NotImplementedError('Unknown command')
 
@@ -302,10 +303,21 @@ if __name__ == '__main__':
         dest='command'
     )
 
-    docker = subcommand.add_parser('docker', help='Docker container manipulation')
+    docker = subcommand.add_parser(
+        'docker',
+        help='Docker container manipulation'
+    )
+    docker.add_argument(
+        '--container', '-c',
+        type=str,
+        nargs='?',
+        help='Name of the container to manipulate (default: nailgun)'
+    )
 
-    docker.add_argument('--container', '-c', type=str, nargs='?')
-    docker.add_argument('--source', '-s', type=str, nargs='?', default='.')
+    ssh = subcommand.add_parser(
+        'ssh',
+        help='SSH into fuel-master'
+    )
 
     docker_subcommand = docker.add_subparsers(
         title='subcommand',
@@ -313,38 +325,79 @@ if __name__ == '__main__':
         dest='subcommand'
     )
 
-    #docker_subcommand_parser = docker_subcommand.add_parser('command')
+    docker_subcommand.add_parser(
+        'id',
+        help='Print ID of the container'
+    )
+    docker_subcommand.add_parser(
+        'config',
+        help='Print container configuration (JSON format)'
+    )
+    docker_subcommand.add_parser(
+        'dir',
+        help='Print rootfs directory of a container'
+    )
 
-    docker_subcommand.add_parser('id')
-    docker_subcommand.add_parser('config')
-    docker_subcommand.add_parser('dir')
-
-    docker_subcommand_log = docker_subcommand.add_parser('log')
+    docker_subcommand_log = docker_subcommand.add_parser(
+        'log',
+        help='Print logs for container (default: all logs)'
+    )
     docker_subcommand_log.add_argument(
         'files',
         type=str,
-        nargs='*'
+        nargs='*',
+        help='Restrict logs to specific ones (api, app, etc)'
     )
 
-    docker_subcommand.add_parser('restart')
+    docker_subcommand.add_parser(
+        'restart',
+        help='Restart container'
+    )
 
-    docker_subcommand.add_parser('rsync')
+    docker_subcommand_rsync = docker_subcommand.add_parser(
+        'rsync',
+        help='Rsync source directory into container'
+    )
+    docker_subcommand_rsync.add_argument(
+        '--source', '-s',
+        type=str,
+        nargs='?',
+        default='.',
+        help='Source of the rsync directory'
+    )
 
     docker_subcommand_rsync_static = docker_subcommand.add_parser('rsync-static')
     docker_subcommand_rsync_static.add_argument(
         '--no-grunt', action='store_true', default=False
     )
+    docker_subcommand_rsync_static.add_argument(
+        '--source', '-s',
+        type=str,
+        nargs='?',
+        default='.',
+        help='Source of the rsync directory'
+    )
 
-    docker_subcommand_log = docker_subcommand.add_parser('tail')
+    docker_subcommand_log = docker_subcommand.add_parser(
+        'tail',
+        help='Continously inspect (tail) logs of a container'
+    )
     docker_subcommand_log.add_argument(
         'files',
         type=str,
-        nargs='*'
+        nargs='*',
+        help='Restrict logs to specific ones (api, app, etc)'
     )
 
-    docker_subcommand.add_parser('volumes')
-    docker_subcommand.add_parser('send-identity')
-    docker_subcommand.add_parser('ssh')
+    docker_subcommand.add_parser(
+        'volumes',
+        help='Print all volumes of a container'
+    )
+    docker_subcommand.add_parser(
+        'send-identity',
+        help=('Send public key to fuel-master server for passwordless '
+            'authentication')
+    )
 
     args = parser.parse_args()
 
