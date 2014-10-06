@@ -5,6 +5,8 @@ import json
 import os
 from subprocess import call, check_output, CalledProcessError
 
+import pexpect
+
 
 IP = '10.20.0.2'
 
@@ -44,12 +46,17 @@ def ssh_command(*args):
 
 # TOOD: doesn't work yet, probably non-blocking pipes will be needed
 #       http://stackoverflow.com/questions/19880190/interactive-input-output-using-python
-def ssh_command_call(*args):
+def ssh_command_interactive(*args):
     print("COMMAND: %r" % list(args))
 
     commands = ['ssh', 'root@%s' % IP, '-i', IDENTITY_FILE, '-C'] + list(args)
 
-    return call(commands, shell=True)
+    #return call(commands, shell=True)
+    print('interactive')
+
+    p = pexpect.spawn(' '.join(commands))
+
+    p.interact()
 
 
 def send_identity():
@@ -76,11 +83,19 @@ class DockerCommand(object):
         elif command == 'dir':
             print(self.get_container_directory())
 
+        elif command == 'log':
+            result = ssh_command('tail', '-n', '100', self.get_log_files(args))
+
+            print(result)
+
         elif command == 'rsync':
             self.perform_docker_rsync(args)
 
         elif command == 'rsync-static':
             self.perform_docker_rsync_static(args)
+
+        elif command == 'tail':
+            ssh_command_interactive('tail', '-F', self.get_log_files(args))
 
         elif command == 'volumes':
             print(json.dumps(self.get_container_config().get('Volumes', {}), indent=2))
@@ -89,7 +104,7 @@ class DockerCommand(object):
             send_identity()
 
         elif command == 'ssh':
-            ssh_command('/bin/bash')
+            ssh_command_interactive('/bin/bash')
 
         else:
             raise NotImplementedError('Unknown command')
@@ -117,6 +132,18 @@ class DockerCommand(object):
         paths = ssh_command('ls %s | grep %s' % (DOCKER_DEVICEMAPPER_PATH, iid)).decode('utf-8')
 
         return os.path.join(DOCKER_DEVICEMAPPER_PATH, paths.split()[0])
+
+    def get_log_directory(self):
+        raise NotImplementedError('No log directory for this command')
+
+    def get_log_files(self, args):
+        log_dir = self.get_log_directory()
+        files = '*.log'
+
+        if args.file:
+            files = '%s.log' % args.file
+
+        return os.path.join(log_dir, files)
 
     def perform_docker_rsync(self, source, args):
         raise NotImplementedError('rsync method not implemented')
@@ -159,6 +186,9 @@ class McollectiveDockerCommand(DockerCommand):
 
 class NailgunDockerCommand(DockerCommand):
     container = 'nailgun'
+
+    def get_log_directory(self):
+        return '/var/log/docker-logs/nailgun'
 
     def perform_docker_rsync(self, args):
         source_dir = args.source
@@ -276,11 +306,28 @@ if __name__ == '__main__':
     docker_subcommand.add_parser('id')
     docker_subcommand.add_parser('config')
     docker_subcommand.add_parser('dir')
+
+    docker_subcommand_log = docker_subcommand.add_parser('log')
+    docker_subcommand_log.add_argument(
+        'file',
+        type=str,
+        nargs='?'
+    )
+
     docker_subcommand.add_parser('rsync')
+
     docker_subcommand_rsync_static = docker_subcommand.add_parser('rsync-static')
     docker_subcommand_rsync_static.add_argument(
         '--grunt', action='store_true', default=False
     )
+
+    docker_subcommand_log = docker_subcommand.add_parser('tail')
+    docker_subcommand_log.add_argument(
+        'file',
+        type=str,
+        nargs='?'
+    )
+
     docker_subcommand.add_parser('volumes')
     docker_subcommand.add_parser('send-identity')
     docker_subcommand.add_parser('ssh')
