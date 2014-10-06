@@ -3,7 +3,7 @@
 import argparse
 import json
 import os
-from subprocess import call, check_output
+from subprocess import call, check_output, CalledProcessError
 
 
 IP = '10.20.0.2'
@@ -16,13 +16,28 @@ DEFAULT_CONTAINER = 'nailgun'
 IDENTITY_FILE = os.path.join(os.environ['HOME'], '.ssh', 'id_rsa.openstack')
 
 
-# TODO: test if key is added to .authorized_keys with
-# ssh root@10.20.0.2 -o PasswordAuthentication=no -C 'echo 1'
-# (see the exit code of this script)
+SSH_PASSWORD_CHECKED = False
+
+
 def ssh_command(*args):
+    global SSH_PASSWORD_CHECKED
+
     print("COMMAND: %r" % list(args))
 
     commands = ['ssh', 'root@%s' % IP, '-i', IDENTITY_FILE, '-C'] + list(args)
+
+    if not SSH_PASSWORD_CHECKED:
+        # NOTE: test if key is added to .authorized_keys with
+
+        SSH_PASSWORD_CHECKED = True
+
+        try:
+            check_output([
+                'ssh', 'root@%s' % IP, '-o', 'PasswordAuthentication=no', '-C', 'echo 1'
+            ])
+        except CalledProcessError:
+            # Exit code error -- send .pub key to host
+            send_identity()
 
     return check_output(commands).strip()
 
@@ -53,8 +68,8 @@ class DockerCommand(object):
         elif command == 'rsync':
             self.perform_docker_rsync(args)
 
-        elif command == 'rsync-statics':
-            self.perform_docker_rsync_statics(args)
+        elif command == 'rsync-static':
+            self.perform_docker_rsync_static(args)
 
         elif command == 'volumes':
             print(json.dumps(self.get_container_config().get('Volumes', {}), indent=2))
@@ -92,8 +107,8 @@ class DockerCommand(object):
     def perform_docker_rsync(self, source, args):
         raise NotImplementedError('rsync method not implemented')
 
-    def perform_docker_rsync_statics(self, source, args):
-        raise NotImplementedError('rsync-statics method not implemented')
+    def perform_docker_rsync_static(self, source, args):
+        raise NotImplementedError('rsync-static method not implemented')
 
     def base_docker_rsync(self, source, target):
         base_target_dir = os.path.join(
@@ -138,7 +153,7 @@ class NailgunDockerCommand(DockerCommand):
         target_path = 'usr/lib/python2.6/site-packages/nailgun'
 
         if args.grunt:
-            self.build_grunt_statics(source_dir)
+            self.build_grunt_static(source_dir)
 
         base_target_dir = os.path.join(
             self.get_container_directory(),
@@ -150,25 +165,25 @@ class NailgunDockerCommand(DockerCommand):
 
         self.base_docker_rsync(source, target)
 
-    def perform_docker_rsync_statics(self, args):
+    def perform_docker_rsync_static(self, args):
         nginx_command = NginxDockerCommand()
 
-        return nginx_command.perform_docker_rsync_statics(args)
+        return nginx_command.perform_docker_rsync_static(args)
 
 
 class NginxDockerCommand(DockerCommand):
     container = 'nginx'
 
-    temporary_build_dir = 'built/static'
+    temporary_build_dir = 'built-static'
 
-    def perform_docker_rsync_statics(self, args):
+    def perform_docker_rsync_static(self, args):
         source_dir = args.source
 
         # NOTE: slash at the end is important in source_path!
         source_path = 'nailgun/%s/' % self.temporary_build_dir
 
         if args.grunt:
-            self.build_grunt_statics(source_dir)
+            self.build_grunt_static(source_dir)
 
         config = self.get_container_config()
         target_dir = config['Volumes']['/usr/share/nailgun/static']
@@ -178,10 +193,10 @@ class NginxDockerCommand(DockerCommand):
 
         self.base_docker_rsync(source, target)
 
-    def build_grunt_statics(self, source_dir):
+    def build_grunt_static(self, source_dir):
         cwd = os.path.join(source_dir, 'nailgun')
 
-        print('Building grunt statics in %s, temporary static dir is: %s...' % (
+        print('Building grunt static in %s, temporary static dir is: %s...' % (
             cwd,
             self.temporary_build_dir
             ))
@@ -199,6 +214,17 @@ class NginxDockerCommand(DockerCommand):
         ], shell=True)
 
         print(result)
+
+
+def send_identity():
+    with open('%s.pub' % IDENTITY_FILE) as f:
+        contents = f.read()
+
+    result = ssh_command("echo '%s' >> ~/.ssh/authorized_keys" % contents)
+
+    print(result)
+
+    return result
 
 
 def handle_args(args):
@@ -224,12 +250,7 @@ def handle_args(args):
         executor.execute(subcommand, args)
 
     elif command == 'send-identity':
-        with open('%s.pub' % IDENTITY_FILE) as f:
-            contents = f.read()
-
-        result = ssh_command("echo '%s' >> ~/.ssh/authorized_keys" % contents)
-
-        print(result)
+        send_identity()
 
     else:
         raise NotImplementedError('Unknown command')
@@ -239,8 +260,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Mirantis helper script')
 
     parser.add_argument('command', type=str, nargs='+')
-    parser.add_argument('--container', type=str, nargs='?')
-    parser.add_argument('--source', type=str, nargs='?', default='.')
+    parser.add_argument('--container', '-c', type=str, nargs='?')
+    parser.add_argument('--source', '-s', type=str, nargs='?', default='.')
     parser.add_argument('--grunt', action='store_true', default=False)  # TODO; move this to 'docker' nailgun subparser
 
     args = parser.parse_args()
