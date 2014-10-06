@@ -140,8 +140,11 @@ class DockerCommand(object):
         log_dir = self.get_log_directory()
         files = '*.log'
 
-        if args.file:
-            files = '%s.log' % args.file
+        if args.files:
+            if len(args.files) == 1:
+                files = '%s.log' % args.files[0]
+            else:
+                files = '{%s}.log' % ','.join(args.files)
 
         return os.path.join(log_dir, files)
 
@@ -193,7 +196,7 @@ class NailgunDockerCommand(DockerCommand):
     def perform_docker_rsync(self, args):
         source_dir = args.source
 
-        source_path = 'nailgun/nailgun'
+        source_path = 'nailgun/nailgun/'
         target_path = 'usr/lib/python2.6/site-packages/nailgun'
 
         base_target_dir = os.path.join(
@@ -223,7 +226,7 @@ class NginxDockerCommand(DockerCommand):
         # NOTE: slash at the end is important in source_path!
         source_path = 'nailgun/%s/' % self.temporary_build_dir
 
-        if args.grunt:
+        if not args.no_grunt:
             self.build_grunt_static(source_dir)
 
         config = self.get_container_config()
@@ -250,11 +253,16 @@ class NginxDockerCommand(DockerCommand):
                 'temporary_build_dir': self.temporary_build_dir,
             }
 
-        result = check_output([
-            cmd
-        ], shell=True)
+        try:
+            result = check_output([
+                cmd
+            ], shell=True)
 
-        print(result)
+            print(result)
+        except CalledProcessError as e:
+            print('GRUNT ERROR')
+            print(e.output)
+            raise
 
 
 def handle_args(args):
@@ -309,23 +317,23 @@ if __name__ == '__main__':
 
     docker_subcommand_log = docker_subcommand.add_parser('log')
     docker_subcommand_log.add_argument(
-        'file',
+        'files',
         type=str,
-        nargs='?'
+        nargs='*'
     )
 
     docker_subcommand.add_parser('rsync')
 
     docker_subcommand_rsync_static = docker_subcommand.add_parser('rsync-static')
     docker_subcommand_rsync_static.add_argument(
-        '--grunt', action='store_true', default=False
+        '--no-grunt', action='store_true', default=False
     )
 
     docker_subcommand_log = docker_subcommand.add_parser('tail')
     docker_subcommand_log.add_argument(
-        'file',
+        'files',
         type=str,
-        nargs='?'
+        nargs='*'
     )
 
     docker_subcommand.add_parser('volumes')
