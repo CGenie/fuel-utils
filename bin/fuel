@@ -311,7 +311,7 @@ def handle_args(args):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Mirantis helper script')
+    parser = argparse.ArgumentParser(description='Mirantis Fuel helper script')
 
     subcommand = parser.add_subparsers(
         title='command', 
