@@ -114,6 +114,12 @@ class DockerCommand(object):
         elif command == 'rsync-static':
             self.perform_docker_rsync_static(args)
 
+        elif command == 'start':
+            self.start_container()
+
+        elif command == 'stop':
+            self.stop_container()
+
         elif command == 'tail':
             ssh_command_interactive('tail', '-F', self.get_log_files(args))
 
@@ -127,7 +133,7 @@ class DockerCommand(object):
             raise NotImplementedError('Unknown command')
 
     def get_docker_id(self):
-        return ssh_command('docker ps | grep -i %s | cut -f 1 -d " "' % self.container).decode('utf-8')
+        return ssh_command('docker ps -a | grep -i %s | cut -f 1 -d " "' % self.container).decode('utf-8')
 
     def get_container_config(self):
         d = self.get_container_config_directory()
@@ -176,6 +182,16 @@ class DockerCommand(object):
 
     def restart_container(self):
         result = ssh_command('docker restart %s' % self.get_docker_id())
+
+        print(result)
+
+    def start_container(self):
+        result = ssh_command('docker start %s' % self.get_docker_id())
+
+        print(result)
+
+    def stop_container(self):
+        result = ssh_command('docker stop %s' % self.get_docker_id())
 
         print(result)
 
@@ -384,6 +400,16 @@ if __name__ == '__main__':
         nargs='?',
         default='.',
         help='Source of the rsync directory'
+    )
+
+    docker_subcommand.add_parser(
+        'start',
+        help='Start container'
+    )
+
+    docker_subcommand.add_parser(
+        'stop',
+        help='Stop container'
     )
 
     docker_subcommand_log = docker_subcommand.add_parser(
