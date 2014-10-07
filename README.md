@@ -98,6 +98,6 @@ Print all volumes of a container.
 
 SSH into `fuel-master` (currently using `pexpect`, the shell is interactive but lacks prompt)
 
-*TODO*:
+# TODOs
 
 * After ISO rebuild error is thrown about `.ssh/known_hosts` -- detect it and fix automatically to minimize user pain.
