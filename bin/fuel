@@ -311,7 +311,8 @@ if __name__ == '__main__':
         '--container', '-c',
         type=str,
         nargs='?',
-        help='Name of the container to manipulate (default: nailgun)'
+        help='Name of the container to manipulate (default: %s)' % \
+            DEFAULT_CONTAINER
     )
 
     ssh = subcommand.add_parser(
@@ -366,9 +367,16 @@ if __name__ == '__main__':
         help='Source of the rsync directory'
     )
 
-    docker_subcommand_rsync_static = docker_subcommand.add_parser('rsync-static')
+    docker_subcommand_rsync_static = docker_subcommand.add_parser(
+        'rsync-static',
+        help='Rsync static files into container'
+    )
     docker_subcommand_rsync_static.add_argument(
-        '--no-grunt', action='store_true', default=False
+        '--no-grunt',
+        action='store_true',
+        default=False,
+        help=("Don\t run Grunt building task (default: False; note that "
+            "by default the minified version is used by fuel-main)")
     )
     docker_subcommand_rsync_static.add_argument(
         '--source', '-s',
