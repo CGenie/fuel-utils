@@ -5,8 +5,6 @@ import json
 import os
 from subprocess import call, check_output, CalledProcessError
 
-import pexpect
-
 
 IP = '10.20.0.2'
 
@@ -49,14 +47,14 @@ def ssh_command(*args):
 def ssh_command_interactive(*args):
     print("COMMAND: %r" % list(args))
 
-    commands = ['ssh', 'root@%s' % IP, '-i', IDENTITY_FILE, '-C'] + list(args)
+    if args:
+        commands = ['ssh', 'root@%s' % IP, '-i', IDENTITY_FILE, '-C'] + list(args)
+    else:
+        commands = ['ssh', 'root@%s' % IP, '-i', IDENTITY_FILE]
 
-    #return call(commands, shell=True)
-    print('interactive')
+    print('interactive', commands)
 
-    p = pexpect.spawn(' '.join(commands))
-
-    p.interact()
+    os.execvp('ssh', commands)
 
 
 def send_identity():
@@ -304,7 +302,7 @@ def handle_args(args):
         executor.execute(subcommand, args)
 
     elif command == 'ssh':
-        ssh_command_interactive('/bin/bash')
+        ssh_command_interactive()
 
     else:
         raise NotImplementedError('Unknown command')
