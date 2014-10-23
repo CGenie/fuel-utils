@@ -99,9 +99,9 @@ class DockerCommand(object):
             print(self.get_container_directory())
 
         elif command == 'log':
-            result = ssh_command('tail', '-n', '100', self.get_log_files(args))
+            result = ssh_command('tail', '-n', '2000', self.get_log_files(args))
 
-            print(result)
+            print(result.decode('utf-8'))
 
         elif command == 'restart':
             self.restart_container()
@@ -192,6 +192,13 @@ class DockerCommand(object):
         result = ssh_command('docker stop %s' % self.get_docker_id())
 
         print(result)
+
+
+class AstuteDockerCommand(DockerCommand):
+    container = 'astute'
+
+    def get_log_directory(self):
+        return '/var/log/docker-logs/astute'
 
 
 class KeystoneDockerCommand(DockerCommand):
@@ -288,7 +295,9 @@ def handle_args(args):
 
         container = args.container or DEFAULT_CONTAINER
 
-        if container == 'keystone':
+        if container == 'astute':
+            executor = AstuteDockerCommand()
+        elif container == 'keystone':
             executor = KeystoneDockerCommand()
         elif container == 'nailgun':
             executor = NailgunDockerCommand()
