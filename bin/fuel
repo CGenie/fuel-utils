@@ -18,11 +18,14 @@ IDENTITY_FILE = os.path.join(os.environ['HOME'], '.ssh', 'id_rsa.openstack')
 
 SSH_PASSWORD_CHECKED = False
 
+DEBUG = os.environ.get('DEBUG', False)
+
 
 def ssh_command(*args):
     global SSH_PASSWORD_CHECKED
 
-    print("COMMAND: %r" % list(args))
+    if DEBUG:
+        print("COMMAND: %r" % list(args))
 
     commands = ['ssh', 'root@%s' % IP, '-i', IDENTITY_FILE, '-C'] + list(args)
 
@@ -42,17 +45,17 @@ def ssh_command(*args):
     return check_output(commands).strip()
 
 
-# TOOD: doesn't work yet, probably non-blocking pipes will be needed
-#       http://stackoverflow.com/questions/19880190/interactive-input-output-using-python
 def ssh_command_interactive(*args):
-    print("COMMAND: %r" % list(args))
+    if DEBUG:
+        print("COMMAND: %r" % list(args))
 
     if args:
-        commands = ['ssh', 'root@%s' % IP, '-i', IDENTITY_FILE, '-C'] + list(args)
+        commands = ['ssh', '-t', 'root@%s' % IP, '-i', IDENTITY_FILE, '-C'] + list(args)
     else:
-        commands = ['ssh', 'root@%s' % IP, '-i', IDENTITY_FILE]
+        commands = ['ssh', '-t', 'root@%s' % IP, '-i', IDENTITY_FILE]
 
-    print('interactive', commands)
+    if DEBUG:
+        print('interactive', commands)
 
     os.execvp('ssh', commands)
 
@@ -99,7 +102,7 @@ class DockerCommand(object):
             print(self.get_container_directory())
 
         elif command == 'log':
-            result = ssh_command('tail', '-n', '2000', self.get_log_files(args))
+            result = ssh_command('tail', '-n', '100000', self.get_log_files(args))
 
             print(result.decode('utf-8'))
 
@@ -111,6 +114,12 @@ class DockerCommand(object):
 
         elif command == 'rsync-static':
             self.perform_docker_rsync_static(args)
+
+        elif command == 'shell':
+            if args.shell_command:
+                self.container_shell_command(*args.shell_command)
+            else:
+                self.container_shell()
 
         elif command == 'start':
             self.start_container()
@@ -130,8 +139,18 @@ class DockerCommand(object):
         else:
             raise NotImplementedError('Unknown command')
 
+    def container_shell_command(self, *command):
+        return ssh_command_interactive(
+            'dockerctl', 'shell', self.get_docker_id(), *command
+        )
+
+    def container_shell(self):
+        return self.container_shell_command(self)
+
     def get_docker_id(self):
-        return ssh_command('docker ps -a | grep -i %s | cut -f 1 -d " "' % self.container).decode('utf-8')
+        up = ssh_command('docker ps -a | grep -i %s | grep Up | cut -f 1 -d " "' % self.container).decode('utf-8')
+
+        return up
 
     def get_container_config(self):
         d = self.get_container_config_directory()
@@ -212,6 +231,11 @@ class McollectiveDockerCommand(DockerCommand):
 class NailgunDockerCommand(DockerCommand):
     container = 'nailgun'
 
+    def container_shell(self):
+        return ssh_command_interactive(
+            'dockerctl', 'shell', self.get_docker_id(), 'python'
+        )
+
     def get_log_directory(self):
         return '/var/log/docker-logs/nailgun'
 
@@ -287,6 +311,15 @@ class NginxDockerCommand(DockerCommand):
             raise
 
 
+class PostgreSQLDockerCommand(DockerCommand):
+    container = 'postgres'
+
+    def container_shell(self):
+        return ssh_command_interactive(
+            'dockerctl', 'shell', self.get_docker_id(), 'su - postgres -c "psql -d nailgun"'
+        )
+
+
 def handle_args(args):
     command = args.command
 
@@ -299,16 +332,21 @@ def handle_args(args):
             executor = AstuteDockerCommand()
         elif container == 'keystone':
             executor = KeystoneDockerCommand()
+        elif container == 'mcollective':
+            executor = McollectiveDockerCommand()
         elif container == 'nailgun':
             executor = NailgunDockerCommand()
         elif container == 'nginx':
             executor = NginxDockerCommand()
-        elif container == 'mcollective':
-            executor = McollectiveDockerCommand()
+        elif container == 'postgres':
+            executor = PostgreSQLDockerCommand()
         else:
             raise NotImplementedError('Unsupported Docker container')
 
         executor.execute(subcommand, args)
+
+    elif command == 'psql':
+        psql_command_interactive()
 
     elif command == 'ssh':
         ssh_command_interactive()
@@ -339,6 +377,11 @@ if __name__ == '__main__':
     )
 
     ssh = subcommand.add_parser(
+        'psql',
+        help='Call the PostgreSQL shell'
+    )
+
+    ssh = subcommand.add_parser(
         'ssh',
         help='SSH into fuel-master'
     )
@@ -357,6 +400,7 @@ if __name__ == '__main__':
         'config',
         help='Print container configuration (JSON format)'
     )
+
     docker_subcommand.add_parser(
         'dir',
         help='Print rootfs directory of a container'
@@ -407,6 +451,17 @@ if __name__ == '__main__':
         nargs='?',
         default='.',
         help='Source of the rsync directory'
+    )
+
+    docker_subcommand_shell = docker_subcommand.add_parser(
+        'shell',
+        help='Shell into container'
+    )
+    docker_subcommand_shell.add_argument(
+        '--shell-command', '-c',
+        type=str,
+        nargs='*',
+        help='Special shell command to execute'
     )
 
     docker_subcommand.add_parser(
