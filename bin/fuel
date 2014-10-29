@@ -101,6 +101,8 @@ def send_identity():
 class DockerCommand(object):
     container = None
 
+    base_rsync_args = ['-a', '-v', '-z', '-e']
+
     def base_docker_rsync(self, source, target):
         base_target_dir = os.path.join(
             self.get_container_directory(),
@@ -109,14 +111,17 @@ class DockerCommand(object):
 
         print('RSYNC: %s --> %s' % (source, target))
 
-        result = check_output([
-            'rsync', '-avz', '-e', 'ssh', source, target
-        ])
+        result = check_output(
+            ['rsync'] + self.rsync_args() + ['ssh', source, target]
+        )
 
         print(result.decode('utf-8'))
 
         # post rsync tasks
         self.post_docker_rsync()
+
+    def rsync_args(self):
+        return self.base_rsync_args
 
     def execute(self, command, args):
         if command == 'id':
@@ -300,6 +305,9 @@ class NginxDockerCommand(DockerCommand):
     container = 'nginx'
 
     temporary_build_dir = 'built-static'
+
+    def rsync_args(self):
+        return self.base_rsync_args + ['--exclude=*.pyc']
 
     def perform_docker_rsync_static(self, args):
         source_dir = args.source
