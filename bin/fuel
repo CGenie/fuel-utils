@@ -39,6 +39,14 @@ def print_info():
             width=20,
             align='<')
 
+    classes = DockerCommand.__subclasses__()
+    for klass in sorted(classes, key=lambda k: k.__name__):
+        print(klass.container.title())
+        if hasattr(klass, 'get_info'):
+            print(klass.get_info())
+
+        print('')
+
 
 def ssh_command(*args):
     global SSH_PASSWORD_CHECKED
@@ -242,6 +250,14 @@ class AstuteDockerCommand(DockerCommand):
 class KeystoneDockerCommand(DockerCommand):
     container = 'keystone'
 
+    @classmethod
+    def get_info(self):
+        return """Authorize using cURL:
+curl -i 'http://%(IP)s:5000/v2.0/tokens' -X POST -H "Content-Type: application/json" -H "Accept: application/json"  -d '{"auth": {"tenantName": "admin", "passwordCredentials": {"username": "admin", "password": "admin"}}}'
+List tenants using the token:
+curl -i -X GET http://%(IP)s:35357/v2.0/tenants -H "User-Agent: python-keystoneclient" -H "X-Auth-Token: token"
+        """ % {'IP': IP}
+
 
 class McollectiveDockerCommand(DockerCommand):
     container = 'mcollective'
@@ -351,20 +367,10 @@ def handle_args(args):
 
         container = args.container or DEFAULT_CONTAINER
 
-        if container == 'astute':
-            executor = AstuteDockerCommand()
-        elif container == 'keystone':
-            executor = KeystoneDockerCommand()
-        elif container == 'mcollective':
-            executor = McollectiveDockerCommand()
-        elif container == 'nailgun':
-            executor = NailgunDockerCommand()
-        elif container == 'nginx':
-            executor = NginxDockerCommand()
-        elif container == 'postgres':
-            executor = PostgreSQLDockerCommand()
-        elif container == 'rabbitmq':
-            executor = RabbitMQDockerCommand()
+        for klass in DockerCommand.__subclasses__():
+            if container == klass.container:
+                executor = klass()
+                break
         else:
             raise NotImplementedError('Unsupported Docker container')
 
