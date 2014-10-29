@@ -21,6 +21,25 @@ SSH_PASSWORD_CHECKED = False
 DEBUG = os.environ.get('DEBUG', False)
 
 
+def print_info():
+    urls = [
+        ('OpenStackAPI', 5000, 'http://developer.openstack.org/api-ref.html'),
+        ('RabbitMQ', 5672, 'User/password: <empty>'),
+        ('RabbitMQ Management', 15672, 'User/password: <empty>'),
+    ]
+
+    print('URLS:')
+    for name, port, info in urls:
+        print('{name:{fill}{align}{width}}http://{IP}:{port:{fill}{align}{width}}{info}').format(
+            name=name,
+            IP=IP,
+            port=port,
+            info=info,
+            fill=' ',
+            width=20,
+            align='<')
+
+
 def ssh_command(*args):
     global SSH_PASSWORD_CHECKED
 
@@ -145,7 +164,7 @@ class DockerCommand(object):
         )
 
     def container_shell(self):
-        return self.container_shell_command(self)
+        return self.container_shell_command()
 
     def get_docker_id(self):
         up = ssh_command('docker ps -a | grep -i %s | grep Up | cut -f 1 -d " "' % self.container).decode('utf-8')
@@ -320,6 +339,10 @@ class PostgreSQLDockerCommand(DockerCommand):
         )
 
 
+class RabbitMQDockerCommand(DockerCommand):
+    container = 'rabbitmq'
+
+
 def handle_args(args):
     command = args.command
 
@@ -340,13 +363,15 @@ def handle_args(args):
             executor = NginxDockerCommand()
         elif container == 'postgres':
             executor = PostgreSQLDockerCommand()
+        elif container == 'rabbitmq':
+            executor = RabbitMQDockerCommand()
         else:
             raise NotImplementedError('Unsupported Docker container')
 
         executor.execute(subcommand, args)
 
-    elif command == 'psql':
-        psql_command_interactive()
+    elif command == 'info':
+        print_info()
 
     elif command == 'ssh':
         ssh_command_interactive()
@@ -376,9 +401,9 @@ if __name__ == '__main__':
             DEFAULT_CONTAINER
     )
 
-    ssh = subcommand.add_parser(
-        'psql',
-        help='Call the PostgreSQL shell'
+    info = subcommand.add_parser(
+        'info',
+        help='Various useful information about the cluster'
     )
 
     ssh = subcommand.add_parser(

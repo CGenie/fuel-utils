@@ -101,3 +101,4 @@ SSH into `fuel-master` (currently using `pexpect`, the shell is interactive but 
 # TODOs
 
 * After ISO rebuild error is thrown about `.ssh/known_hosts` -- detect it and fix automatically to minimize user pain.
+* Better error reporting about wrong command, no SSH ID file, etc
