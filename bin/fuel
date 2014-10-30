@@ -300,14 +300,14 @@ class NailgunDockerCommand(DockerCommand):
 
         return nginx_command.perform_docker_rsync_static(args)
 
+    def rsync_args(self):
+        return self.base_rsync_args + ['--exclude=*.pyc']
+
 
 class NginxDockerCommand(DockerCommand):
     container = 'nginx'
 
     temporary_build_dir = 'built-static'
-
-    def rsync_args(self):
-        return self.base_rsync_args + ['--exclude=*.pyc']
 
     def perform_docker_rsync_static(self, args):
         source_dir = args.source
