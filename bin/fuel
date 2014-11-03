@@ -301,7 +301,7 @@ class NailgunDockerCommand(DockerCommand):
         return nginx_command.perform_docker_rsync_static(args)
 
     def rsync_args(self):
-        return self.base_rsync_args + ['--exclude=*.pyc']
+        return self.base_rsync_args
 
 
 class NginxDockerCommand(DockerCommand):
