@@ -20,6 +20,8 @@ Here's a list of supported commands:
 
 Print some info about all Docker containers.
 
+---
+
 ## `docker {subcommand}`
 
 manipulate Docker containers
