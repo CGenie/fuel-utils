@@ -18,7 +18,7 @@ IDENTITY_FILE = os.path.join(os.environ['HOME'], '.ssh', 'id_rsa.openstack')
 
 SSH_PASSWORD_CHECKED = False
 
-DEBUG = os.environ.get('DEBUG', False)
+VERBOSE = False
 
 
 def print_info():
@@ -51,7 +51,7 @@ def print_info():
 def ssh_command(*args):
     global SSH_PASSWORD_CHECKED
 
-    if DEBUG:
+    if VERBOSE:
         print("COMMAND: %r" % list(args))
 
     commands = ['ssh', 'root@%s' % IP, '-i', IDENTITY_FILE, '-C'] + list(args)
@@ -73,7 +73,7 @@ def ssh_command(*args):
 
 
 def ssh_command_interactive(*args):
-    if DEBUG:
+    if VERBOSE:
         print("COMMAND: %r" % list(args))
 
     if args:
@@ -81,7 +81,7 @@ def ssh_command_interactive(*args):
     else:
         commands = ['ssh', '-t', 'root@%s' % IP, '-i', IDENTITY_FILE]
 
-    if DEBUG:
+    if VERBOSE:
         print('interactive', commands)
 
     os.execvp('ssh', commands)
@@ -403,6 +403,13 @@ if __name__ == '__main__':
         dest='command'
     )
 
+    parser.add_argument(
+        '--verbose', '-v',
+        help='Print more information',
+        default=False,
+        action='store_true'
+    )
+
     docker = subcommand.add_parser(
         'docker',
         help='Docker container manipulation'
@@ -535,5 +542,8 @@ if __name__ == '__main__':
     )
 
     args = parser.parse_args()
+
+    if args.verbose:
+        VERBOSE = True
 
     handle_args(args)
