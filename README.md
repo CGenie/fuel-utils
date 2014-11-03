@@ -98,6 +98,7 @@ fuel docker -c postgres shell
 -- kill processes if DROP DATABASE doesn't work:
 -- SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE pid <> pg_backend_pid() AND datname = 'nailgun';
 DROP DATABASE nailgun;
+CREATE DATABASE nailgun WITH OWNER nailgun;
 \q
 fuel docker shell -c /bin/bash
 manage.py syncdb
