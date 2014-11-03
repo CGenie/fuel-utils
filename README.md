@@ -16,7 +16,7 @@ Here's a list of supported commands:
 
 ---
 
-## info
+## `info`
 
 Print some info about all Docker containers.
 
@@ -76,11 +76,11 @@ Note that by default the minified version is used by fuel-main so if you change 
 
 Specify the rsync source directory
 
-### shell
+### `shell`
 
 Shell into the container. By default, nailgun container shells into `IPython` environment, while PostgreSQL container runs `psql` with the `nailgun` database.
 
-###### --shell-command, -c
+###### `--shell-command`, `-c`
 
 Specify an optional command to run in the Docker shell. This overrides the default command (IPython for nailgun, `psql` for PostgreSQL, etc). Run it like this:
 
