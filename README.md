@@ -95,6 +95,8 @@ For example, if you want a fresh database (because some new models showed up in 
 ```
 fuel docker -c postgres shell
 \c postgres
+-- kill processes if DROP DATABASE doesn't work:
+-- SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE pid <> pg_backend_pid() AND datname = 'nailgun';
 DROP DATABASE nailgun;
 \q
 fuel docker shell -c /bin/bash
