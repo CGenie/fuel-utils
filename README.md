@@ -16,6 +16,10 @@ Here's a list of supported commands:
 
 ---
 
+## info
+
+Print some info about all Docker containers.
+
 ## `docker {subcommand}`
 
 manipulate Docker containers
@@ -71,6 +75,30 @@ Note that by default the minified version is used by fuel-main so if you change 
 ###### `--source`, `-s`
 
 Specify the rsync source directory
+
+### shell
+
+Shell into the container. By default, nailgun container shells into `IPython` environment, while PostgreSQL container runs `psql` with the `nailgun` database.
+
+###### --shell-command, -c
+
+Specify an optional command to run in the Docker shell. This overrides the default command (IPython for nailgun, `psql` for PostgreSQL, etc). Run it like this:
+
+```
+fuel docker shell -c /bin/bash
+```
+
+For example, if you want a fresh database (because some new models showed up in the current migration) you can do:
+
+```
+fuel docker -c postgres shell
+\c postgres
+DROP DATABASE nailgun;
+\q
+fuel docker shell -c /bin/bash
+manage.py syncdb
+manage.py loaddefault
+```
 
 ### `start`
 
