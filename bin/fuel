@@ -3,6 +3,7 @@
 import argparse
 import json
 import os
+import six
 from subprocess import call, check_output, CalledProcessError
 import sys
 
@@ -25,9 +26,9 @@ class UnknownCommand(Exception):
     pass
 
 
-def print_verbose(msg):
+def print_verbose(*args):
     if VERBOSE:
-        print(msg)
+        six.print_(*args)
 
 
 def print_info():
