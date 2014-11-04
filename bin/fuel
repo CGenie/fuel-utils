@@ -22,6 +22,9 @@ SSH_PASSWORD_CHECKED = False
 VERBOSE = False
 
 
+class DockerError(Exception):
+    pass
+
 class UnknownCommand(Exception):
     pass
 
@@ -192,6 +195,11 @@ class DockerCommand(object):
 
     def get_docker_id(self):
         up = ssh_command('docker ps -a | grep -i %s | grep Up | cut -f 1 -d " "' % self.container).decode('utf-8')
+
+        print_verbose('FOUND CONTAINERS: %r' % up)
+
+        if not up:
+            raise DockerError("Container '%s' not found or not functional" % self.container)
 
         return up
 
@@ -603,3 +611,6 @@ if __name__ == '__main__':
         handle_args(args)
     except UnknownCommand:
         parser.print_help()
+    except DockerError as e:
+        six.print_(e)
+        sys.exit(1)
