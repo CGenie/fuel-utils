@@ -9,10 +9,31 @@ Set up your Fuel environment from ISO as described here for example http://samur
 
 Currently the only script in this repo, add it to your `$PATH` to make access easier.
 
-It is assumed that your `fuel-master` machine is under IP `10.20.0.2`. If it's different, change the `IP` variable in the script.
-Also the script tries to send your SSH public key credentials to the `fuel-master` server to save you from typing passwords. You can change the location of the SSH key by changing the `IDENTITY_FILE` variable in the script.
+It is assumed that your `fuel-master` machine is under IP `10.20.0.2`. If it's different, specify it in the `--ip`
+argument.  Also the script tries to send your SSH public key credentials to the `fuel-master` server to save you from
+typing passwords. You can change the location of the SSH key by passing the `--ssh-identity-file` variable in the
+script. If can also turn off sending the SSH identity file by passing the `--no-ssh-identity-file` option but you may be
+prompted for root password, even couple of times.
 
 Here's a list of supported commands:
+
+---
+
+## `--ip`
+
+Specify IP of the Fuel master ISO (default is `10.20.0.2`).
+
+## `--no-ssh-identity-file`
+
+Don't try to send the SSH identity file if it's not present on the Fuel master ISO.
+
+## `--ssh-identity-file`
+
+Specify SSH identity file (default is `$HOME/.ssh/id_rsa.openstack`).
+
+## `--verbose`
+
+Be more verbose.
 
 ---
 

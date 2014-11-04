@@ -4,21 +4,30 @@ import argparse
 import json
 import os
 from subprocess import call, check_output, CalledProcessError
+import sys
 
 
-IP = '10.20.0.2'
+IP = None
 
 DOCKER_CONTAINER_PATH = '/var/lib/docker/containers/'
 DOCKER_DEVICEMAPPER_PATH = '/var/lib/docker/devicemapper/mnt/'
 
 DEFAULT_CONTAINER = 'nailgun'
 
-IDENTITY_FILE = os.path.join(os.environ['HOME'], '.ssh', 'id_rsa.openstack')
-
+IDENTITY_FILE = None
 
 SSH_PASSWORD_CHECKED = False
 
 VERBOSE = False
+
+
+class UnknownCommand(Exception):
+    pass
+
+
+def print_verbose(*args):
+    if VERBOSE:
+        print(*args)
 
 
 def print_info():
@@ -30,7 +39,7 @@ def print_info():
 
     print('URLS:')
     for name, port, info in urls:
-        print('{name:{fill}{align}{width}}http://{IP}:{port:{fill}{align}{width}}{info}').format(
+        print('{name:{fill}{align}{width}}http://{IP}:{port:{fill}{align}{width}}{info}'.format(
             name=name,
             IP=IP,
             port=port,
@@ -38,6 +47,7 @@ def print_info():
             fill=' ',
             width=20,
             align='<')
+        )
 
     classes = DockerCommand.__subclasses__()
     for klass in sorted(classes, key=lambda k: k.__name__):
@@ -51,8 +61,7 @@ def print_info():
 def ssh_command(*args):
     global SSH_PASSWORD_CHECKED
 
-    if VERBOSE:
-        print("COMMAND: %r" % list(args))
+    print_verbose("COMMAND: %r" % list(args))
 
     commands = ['ssh', 'root@%s' % IP, '-i', IDENTITY_FILE, '-C'] + list(args)
 
@@ -73,16 +82,14 @@ def ssh_command(*args):
 
 
 def ssh_command_interactive(*args):
-    if VERBOSE:
-        print("COMMAND: %r" % list(args))
+    print_verbose("COMMAND: %r" % list(args))
 
     if args:
         commands = ['ssh', '-t', 'root@%s' % IP, '-i', IDENTITY_FILE, '-C'] + list(args)
     else:
         commands = ['ssh', '-t', 'root@%s' % IP, '-i', IDENTITY_FILE]
 
-    if VERBOSE:
-        print('interactive', commands)
+    print_verbose('interactive', commands)
 
     os.execvp('ssh', commands)
 
@@ -391,16 +398,30 @@ def handle_args(args):
         ssh_command_interactive()
 
     else:
-        raise NotImplementedError('Unknown command')
+        raise UnknownCommand('Unknown command')
 
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Mirantis Fuel helper script')
+def add_global_arguments(parser):
+    parser.add_argument(
+        '--ip',
+        help='Set Fuel ISO master IP address',
+        default='10.20.0.2',
+        type=str,
+        nargs='?'
+    )
 
-    subcommand = parser.add_subparsers(
-        title='command', 
-        description='Command to execute',
-        dest='command'
+    parser.add_argument(
+        '--no-ssh-identity-file',
+        help=("Don't use SSH identity file (will ask for password upon every "
+              "SSH request)"),
+        action='store_true',
+        default=False
+    )
+
+    parser.add_argument(
+        '--ssh-identity-file',
+        help='Specify different SSH identity file',
+        default=os.path.join(os.environ['HOME'], '.ssh', 'id_rsa.openstack')
     )
 
     parser.add_argument(
@@ -410,10 +431,24 @@ if __name__ == '__main__':
         action='store_true'
     )
 
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Mirantis Fuel helper script')
+
+    add_global_arguments(parser)
+
+    subcommand = parser.add_subparsers(
+        title='command', 
+        description='Command to execute',
+        dest='command'
+    )
+
     docker = subcommand.add_parser(
         'docker',
         help='Docker container manipulation'
     )
+    add_global_arguments(docker)
     docker.add_argument(
         '--container', '-c',
         type=str,
@@ -426,11 +461,13 @@ if __name__ == '__main__':
         'info',
         help='Various useful information about the cluster'
     )
+    add_global_arguments(info)
 
     ssh = subcommand.add_parser(
         'ssh',
         help='SSH into fuel-master'
     )
+    add_global_arguments(ssh)
 
     docker_subcommand = docker.add_subparsers(
         title='subcommand',
@@ -543,7 +580,20 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
+    IP = args.ip
+    IDENTITY_FILE = args.ssh_identity_file
+
+    if args.no_ssh_identity_file:
+        # We don't want to send SSH identity -- pretend that it was sent
+        # already
+        SSH_PASSWORD_CHECKED = True
+
     if args.verbose:
         VERBOSE = True
 
-    handle_args(args)
+    print_verbose(args)
+
+    try:
+        handle_args(args)
+    except UnknownCommand:
+        print(parser.print_help())
