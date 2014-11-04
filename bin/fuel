@@ -25,9 +25,9 @@ class UnknownCommand(Exception):
     pass
 
 
-def print_verbose(*args):
+def print_verbose(msg):
     if VERBOSE:
-        print(*args)
+        print(msg)
 
 
 def print_info():
@@ -95,12 +95,15 @@ def ssh_command_interactive(*args):
 
 
 def send_identity():
+    print_verbose('Sending identity %s for passwordless authentication' %
+                  IDENTITY_FILE)
+
     with open('%s.pub' % IDENTITY_FILE) as f:
         contents = f.read()
 
     result = ssh_command("echo '%s' >> ~/.ssh/authorized_keys" % contents)
 
-    print(result)
+    print_verbose(result)
 
     return result
 
@@ -421,7 +424,9 @@ def add_global_arguments(parser):
     parser.add_argument(
         '--ssh-identity-file',
         help='Specify different SSH identity file',
-        default=os.path.join(os.environ['HOME'], '.ssh', 'id_rsa.openstack')
+        default=os.path.join(os.environ['HOME'], '.ssh', 'id_rsa.openstack'),
+        type=str,
+        nargs='?'
     )
 
     parser.add_argument(
@@ -596,4 +601,4 @@ if __name__ == '__main__':
     try:
         handle_args(args)
     except UnknownCommand:
-        print(parser.print_help())
+        parser.print_help()
