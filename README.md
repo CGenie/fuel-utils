@@ -19,19 +19,21 @@ Here's a list of supported commands:
 
 ---
 
-## `--ip`
+## Global options
+
+### `--ip`
 
 Specify IP of the Fuel master ISO (default is `10.20.0.2`).
 
-## `--no-ssh-identity-file`
+### `--no-ssh-identity-file`
 
 Don't try to send the SSH identity file if it's not present on the Fuel master ISO.
 
-## `--ssh-identity-file`
+### `--ssh-identity-file`
 
 Specify SSH identity file (default is `$HOME/.ssh/id_rsa.openstack`).
 
-## `--verbose`
+### `--verbose`
 
 Be more verbose.
 
