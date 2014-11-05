@@ -4,7 +4,7 @@ import argparse
 import json
 import os
 import six
-from subprocess import call, check_output, CalledProcessError
+from subprocess import call, check_output, CalledProcessError, STDOUT
 import sys
 
 
@@ -23,6 +23,10 @@ VERBOSE = False
 
 
 class DockerError(Exception):
+    pass
+
+
+class SSHError(Exception):
     pass
 
 class UnknownCommand(Exception):
@@ -76,9 +80,13 @@ def ssh_command(*args):
 
         try:
             check_output([
-                'ssh', 'root@%s' % IP, '-o', 'PasswordAuthentication=no', '-C', 'echo 1'
-            ])
-        except CalledProcessError:
+                'ssh', '-o', 'PasswordAuthentication=no', 'root@%s' % IP, 'echo 1'
+            ], stderr=STDOUT)
+        except CalledProcessError as e:
+            if 'remote host identification has changed' in e.output.lower():
+                # .ssh/known_hosts error
+                raise SSHError(e.output)
+                
             # Exit code error -- send .pub key to host
             send_identity()
 
@@ -609,8 +617,11 @@ if __name__ == '__main__':
 
     try:
         handle_args(args)
+    except DockerError as e:
+        six.print_(e.message)
+        sys.exit(1)
     except UnknownCommand:
         parser.print_help()
-    except DockerError as e:
-        six.print_(e)
+    except SSHError as e:
+        six.print_(e.message)
         sys.exit(1)
