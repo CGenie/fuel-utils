@@ -119,7 +119,8 @@ For example, if you want a fresh database (because some new models showed up in 
 fuel docker -c postgres shell
 \c postgres
 -- kill processes if DROP DATABASE doesn't work:
--- SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE pid <> pg_backend_pid() AND datname = 'nailgun';
+-- SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE pid <> pg_backend_pid() AND datname = 'nailgun'; -- Postgres 9.2
+-- SELECT pg_terminate_backend(procpid) FROM pg_stat_activity WHERE procpid <> pg_backend_pid() AND datname = 'nailgun';  -- Postgres 9.1
 DROP DATABASE nailgun;
 CREATE DATABASE nailgun WITH OWNER nailgun;
 \q
