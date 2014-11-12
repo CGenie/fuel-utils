@@ -59,6 +59,7 @@ def print_info():
 
     classes = DockerCommand.__subclasses__()
     for klass in sorted(classes, key=lambda k: k.__name__):
+        print('-'*20)
         print(klass.container.title())
         if hasattr(klass, 'get_info'):
             print(klass.get_info())
@@ -289,6 +290,9 @@ class KeystoneDockerCommand(DockerCommand):
 curl -i 'http://%(IP)s:5000/v2.0/tokens' -X POST -H "Content-Type: application/json" -H "Accept: application/json"  -d '{"auth": {"tenantName": "admin", "passwordCredentials": {"username": "admin", "password": "admin"}}}'
 List tenants using the token:
 curl -i -X GET http://%(IP)s:35357/v2.0/tenants -H "User-Agent: python-keystoneclient" -H "X-Auth-Token: token"
+
+Admin password change:
+keystone --os-endpoint=http://10.20.0.2:35357/v2.0 --os-token=admin_token password-update
         """ % {'IP': IP}
 
 
