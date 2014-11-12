@@ -277,6 +277,11 @@ class DockerCommand(object):
 class AstuteDockerCommand(DockerCommand):
     container = 'astute'
 
+    def get_info(self):
+        return """
+Admin token is stored in /etc/fuel/astute.yaml on Fuel Main.
+        """
+
     def get_log_directory(self):
         return '/var/log/docker-logs/astute'
 
