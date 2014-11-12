@@ -83,7 +83,8 @@ def ssh_command(*args):
                 'ssh', '-o', 'PasswordAuthentication=no', 'root@%s' % IP, 'echo 1'
             ], stderr=STDOUT)
         except CalledProcessError as e:
-            if 'remote host identification has changed' in unicode(e.output).lower():
+            if 'remote host identification has changed' in \
+                    six.u(e.output).decode('utf-8').lower():
                 # .ssh/known_hosts error
                 raise SSHError(e.output)
                 
