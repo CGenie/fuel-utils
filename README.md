@@ -43,6 +43,16 @@ Be more verbose.
 
 Print some info about all Docker containers.
 
+## `send-identity`
+
+Send your public identity key to master server for passwordless authentication.
+
+---
+
+## `ssh`
+
+SSH into `fuel-master`.
+
 ---
 
 ## `docker {subcommand}`
@@ -150,10 +160,6 @@ Restrict the log files to specified list
 Print all volumes of a container.
 
 ---
-
-## `send-identity`
-
-SSH into `fuel-master` (currently using `pexpect`, the shell is interactive but lacks prompt)
 
 # TODOs
 

@@ -189,9 +189,6 @@ class DockerCommand(object):
         elif command == 'volumes':
             print(json.dumps(self.get_container_config().get('Volumes', {}), indent=2))
 
-        elif command == 'send-identity':
-            send_identity()
-
         else:
             raise NotImplementedError('Unknown command')
 
@@ -424,6 +421,9 @@ def handle_args(args):
     elif command == 'info':
         print_info()
 
+    elif command == 'send-identity':
+        send_identity()
+
     elif command == 'ssh':
         ssh_command_interactive()
 
@@ -494,6 +494,13 @@ if __name__ == '__main__':
         help='Various useful information about the cluster'
     )
     add_global_arguments(info)
+
+    send_identity_cmd = subcommand.add_parser(
+        'send-identity',
+        help=('Send public key to fuel-master server for passwordless '
+            'authentication')
+    )
+    add_global_arguments(send_identity_cmd)
 
     ssh = subcommand.add_parser(
         'ssh',
@@ -603,11 +610,6 @@ if __name__ == '__main__':
     docker_subcommand.add_parser(
         'volumes',
         help='Print all volumes of a container'
-    )
-    docker_subcommand.add_parser(
-        'send-identity',
-        help=('Send public key to fuel-master server for passwordless '
-            'authentication')
     )
 
     args = parser.parse_args()
