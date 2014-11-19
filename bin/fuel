@@ -126,24 +126,21 @@ def send_identity():
 class DockerCommand(object):
     container = None
 
-    base_rsync_args = ['-a', '-v', '-z', '-e']
-
     def base_docker_rsync(self, source, target):
-        base_target_dir = os.path.join(
-            self.get_container_directory(),
-            'rootfs'
-        )
-
         print('RSYNC: %s --> %s' % (source, target))
 
         result = check_output(
-            ['rsync'] + self.rsync_args() + ['ssh', source, target]
+            ['rsync'] + self.rsync_args() + [source, target]
         )
 
         print(result.decode('utf-8'))
 
         # post rsync tasks
         self.post_docker_rsync()
+
+    @property
+    def base_rsync_args(self):
+        return ['-a', '-v', '-z', '-e', 'ssh']
 
     def rsync_args(self):
         return self.base_rsync_args
