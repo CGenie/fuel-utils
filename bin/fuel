@@ -123,10 +123,8 @@ def send_identity():
     return result
 
 
-class DockerCommand(object):
-    container = None
-
-    def base_docker_rsync(self, source, target):
+class Command(object):
+    def base_rsync(self, source, target):
         print('RSYNC: %s --> %s' % (source, target))
 
         result = check_output(
@@ -135,15 +133,22 @@ class DockerCommand(object):
 
         print(result.decode('utf-8'))
 
-        # post rsync tasks
-        self.post_docker_rsync()
-
     @property
     def base_rsync_args(self):
         return ['-a', '-v', '-z', '-e', 'ssh']
 
     def rsync_args(self):
         return self.base_rsync_args
+
+
+class DockerCommand(Command):
+    container = None
+
+    def base_docker_rsync(self, source, target):
+        self.base_rsync(source, target)
+
+        # post rsync tasks
+        self.post_docker_rsync()
 
     def execute(self, command, args):
         if command == 'id':
@@ -400,8 +405,34 @@ class PostgreSQLDockerCommand(DockerCommand):
         )
 
 
+class PuppetCommand(Command):
+    # This is not a container really, we just fit it in this schema
+    container = 'puppet'
+
+    def rsync(self, args):
+        source_dir = args.source
+
+        source_path = 'deployment/puppet/'
+        # TODO: do something about hardcoded '2014.2-6.0' string
+        target_path = '/etc/puppet/2014.2-6.0/modules'
+
+        source = os.path.join(source_dir, source_path)
+        target = 'root@%s:%s' % (IP, target_path)
+
+        self.base_rsync(source, target)
+
+
 class RabbitMQDockerCommand(DockerCommand):
     container = 'rabbitmq'
+
+
+def execute_puppet_command(args):
+    cmd = PuppetCommand()
+
+    if args.subcommand == 'rsync':
+        cmd.rsync(args)
+    else:
+        raise UnknownCommand('Unknown command')
 
 
 def handle_args(args):
@@ -423,6 +454,9 @@ def handle_args(args):
 
     elif command == 'info':
         print_info()
+
+    elif command == 'puppet':
+        execute_puppet_command(args)
 
     elif command == 'send-identity':
         send_identity()
@@ -510,6 +544,12 @@ if __name__ == '__main__':
         help='SSH into fuel-master'
     )
     add_global_arguments(ssh)
+
+    puppet = subcommand.add_parser(
+        'puppet',
+        help='Puppet manipulation'
+    )
+    add_global_arguments(puppet)
 
     docker_subcommand = docker.add_subparsers(
         title='subcommand',
@@ -627,6 +667,25 @@ if __name__ == '__main__':
         help='Print all volumes of a container'
     )
     add_global_arguments(docker_subcommand_volumes)
+
+
+    puppet_subcommand = puppet.add_subparsers(
+        title='subcommand',
+        description='Puppet command to execute',
+        dest='subcommand'
+    )
+    puppet_subcommand_rsync = puppet_subcommand.add_parser(
+        'rsync',
+        help='Rsync modules into Puppet'
+    )
+    add_global_arguments(puppet_subcommand_rsync)
+    puppet_subcommand_rsync.add_argument(
+        '--source', '-s',
+        type=str,
+        nargs='?',
+        default='.',
+        help='Source of the rsync directory'
+    )
 
     args = parser.parse_args()
 

@@ -161,6 +161,22 @@ Print all volumes of a container.
 
 ---
 
+## `puppet {subcommand}`
+
+Manipulate Puppet on Fuel Master
+
+### Subcommands
+
+### `rsync`
+
+Rsync `fuel-libs` Puppet modules into Fuel Master.
+
+###### `--source`, `-s`
+
+Specify the rsync source directory
+
+---
+
 # TODOs
 
 * After ISO rebuild error is thrown about `.ssh/known_hosts` -- detect it and fix automatically to minimize user pain.
