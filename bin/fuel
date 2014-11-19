@@ -98,10 +98,11 @@ def ssh_command(*args):
 def ssh_command_interactive(*args):
     print_verbose("COMMAND: %r" % list(args))
 
+    commands = ['ssh', '-t', 'root@%s' % IP, '-i', IDENTITY_FILE]
+
     if args:
-        commands = ['ssh', '-t', 'root@%s' % IP, '-i', IDENTITY_FILE, '-C'] + list(args)
-    else:
-        commands = ['ssh', '-t', 'root@%s' % IP, '-i', IDENTITY_FILE]
+        commands.append('-C')
+        commands.extend(list(args))
 
     print_verbose('interactive', commands)
 
