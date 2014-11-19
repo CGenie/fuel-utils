@@ -501,19 +501,18 @@ def add_global_arguments(parser):
     )
 
 
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Mirantis Fuel helper script')
 
     add_global_arguments(parser)
 
-    subcommand = parser.add_subparsers(
+    command = parser.add_subparsers(
         title='command', 
         description='Command to execute',
         dest='command'
     )
 
-    docker = subcommand.add_parser(
+    docker = command.add_parser(
         'docker',
         help='Docker container manipulation'
     )
@@ -526,26 +525,26 @@ if __name__ == '__main__':
             DEFAULT_CONTAINER
     )
 
-    info = subcommand.add_parser(
+    info = command.add_parser(
         'info',
         help='Various useful information about the cluster'
     )
     add_global_arguments(info)
 
-    send_identity_cmd = subcommand.add_parser(
+    send_identity_cmd = command.add_parser(
         'send-identity',
         help=('Send public key to fuel-master server for passwordless '
             'authentication')
     )
     add_global_arguments(send_identity_cmd)
 
-    ssh = subcommand.add_parser(
+    ssh = command.add_parser(
         'ssh',
         help='SSH into fuel-master'
     )
     add_global_arguments(ssh)
 
-    puppet = subcommand.add_parser(
+    puppet = command.add_parser(
         'puppet',
         help='Puppet manipulation'
     )
