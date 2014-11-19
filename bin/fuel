@@ -272,7 +272,8 @@ class DockerCommand(object):
 class AstuteDockerCommand(DockerCommand):
     container = 'astute'
 
-    def get_info(self):
+    @classmethod
+    def get_info(cls):
         return """
 Admin token is stored in /etc/fuel/astute.yaml on Fuel Main.
         """
@@ -285,7 +286,7 @@ class KeystoneDockerCommand(DockerCommand):
     container = 'keystone'
 
     @classmethod
-    def get_info(self):
+    def get_info(cls):
         return """Authorize using cURL:
 curl -i 'http://%(IP)s:5000/v2.0/tokens' -X POST -H "Content-Type: application/json" -H "Accept: application/json"  -d '{"auth": {"tenantName": "admin", "passwordCredentials": {"username": "admin", "password": "admin"}}}'
 List tenants using the token:
