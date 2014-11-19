@@ -517,24 +517,29 @@ if __name__ == '__main__':
         dest='subcommand'
     )
 
-    docker_subcommand.add_parser(
+    docker_subcommand_id = docker_subcommand.add_parser(
         'id',
         help='Print ID of the container'
     )
-    docker_subcommand.add_parser(
+    add_global_arguments(docker_subcommand_id)
+
+    docker_subcommand_config = docker_subcommand.add_parser(
         'config',
         help='Print container configuration (JSON format)'
     )
+    add_global_arguments(docker_subcommand_config)
 
-    docker_subcommand.add_parser(
+    docker_subcommand_dir = docker_subcommand.add_parser(
         'dir',
         help='Print rootfs directory of a container'
     )
+    add_global_arguments(docker_subcommand_dir)
 
     docker_subcommand_log = docker_subcommand.add_parser(
         'log',
         help='Print logs for container (default: all logs)'
     )
+    add_global_arguments(docker_subcommand_log)
     docker_subcommand_log.add_argument(
         'files',
         type=str,
@@ -542,15 +547,17 @@ if __name__ == '__main__':
         help='Restrict logs to specific ones (api, app, etc)'
     )
 
-    docker_subcommand.add_parser(
+    docker_subcommand_restart = docker_subcommand.add_parser(
         'restart',
         help='Restart container'
     )
+    add_global_arguments(docker_subcommand_restart)
 
     docker_subcommand_rsync = docker_subcommand.add_parser(
         'rsync',
         help='Rsync source directory into container'
     )
+    add_global_arguments(docker_subcommand_rsync)
     docker_subcommand_rsync.add_argument(
         '--source', '-s',
         type=str,
@@ -563,6 +570,7 @@ if __name__ == '__main__':
         'rsync-static',
         help='Rsync static files into container'
     )
+    add_global_arguments(docker_subcommand_rsync_static)
     docker_subcommand_rsync_static.add_argument(
         '--no-grunt',
         action='store_true',
@@ -582,6 +590,7 @@ if __name__ == '__main__':
         'shell',
         help='Shell into container'
     )
+    add_global_arguments(docker_subcommand_shell)
     docker_subcommand_shell.add_argument(
         '--shell-command', '-c',
         type=str,
@@ -589,20 +598,23 @@ if __name__ == '__main__':
         help='Special shell command to execute'
     )
 
-    docker_subcommand.add_parser(
+    docker_subcommand_start = docker_subcommand.add_parser(
         'start',
         help='Start container'
     )
+    add_global_arguments(docker_subcommand_start)
 
-    docker_subcommand.add_parser(
+    docker_subcommand_stop = docker_subcommand.add_parser(
         'stop',
         help='Stop container'
     )
+    add_global_arguments(docker_subcommand_stop)
 
     docker_subcommand_log = docker_subcommand.add_parser(
         'tail',
         help='Continously inspect (tail) logs of a container'
     )
+    add_global_arguments(docker_subcommand_log)
     docker_subcommand_log.add_argument(
         'files',
         type=str,
@@ -610,10 +622,11 @@ if __name__ == '__main__':
         help='Restrict logs to specific ones (api, app, etc)'
     )
 
-    docker_subcommand.add_parser(
+    docker_subcommand_volumes = docker_subcommand.add_parser(
         'volumes',
         help='Print all volumes of a container'
     )
+    add_global_arguments(docker_subcommand_volumes)
 
     args = parser.parse_args()
 
