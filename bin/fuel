@@ -45,9 +45,9 @@ def print_info():
         ('RabbitMQ Management', 15672, 'User/password: <empty>'),
     ]
 
-    print('URLS:')
+    six.print_('URLS:')
     for name, port, info in urls:
-        print('{name:{fill}{align}{width}}http://{IP}:{port:{fill}{align}{width}}{info}'.format(
+        six.print_('{name:{fill}{align}{width}}http://{IP}:{port:{fill}{align}{width}}{info}'.format(
             name=name,
             IP=IP,
             port=port,
@@ -59,12 +59,12 @@ def print_info():
 
     classes = DockerCommand.__subclasses__()
     for klass in sorted(classes, key=lambda k: k.__name__):
-        print('-'*20)
-        print(klass.container.title())
+        six.print_('-'*20)
+        six.print_(klass.container.title())
         if hasattr(klass, 'get_info'):
-            print(klass.get_info())
+            six.print_(klass.get_info())
 
-        print('')
+        six.print_('')
 
 
 def ssh_command(*args):
@@ -125,13 +125,13 @@ def send_identity():
 
 class Command(object):
     def base_rsync(self, source, target):
-        print('RSYNC: %s --> %s' % (source, target))
+        six.print_('RSYNC: %s --> %s' % (source, target))
 
         result = check_output(
             ['rsync'] + self.rsync_args() + [source, target]
         )
 
-        print(result.decode('utf-8'))
+        six.print_(result.decode('utf-8'))
 
     @property
     def base_rsync_args(self):
@@ -144,6 +144,14 @@ class Command(object):
 class DockerCommand(Command):
     container = None
 
+    @classmethod
+    def get_docker_command_by_container(cls, container):
+        for klass in cls.__subclasses__():
+            if container == klass.container:
+                return klass
+        else:
+            raise NotImplementedError('Unsupported Docker container')
+
     def base_docker_rsync(self, source, target):
         self.base_rsync(source, target)
 
@@ -152,18 +160,18 @@ class DockerCommand(Command):
 
     def execute(self, command, args):
         if command == 'id':
-            print(self.get_docker_id())
+            six.print_(self.get_docker_id())
 
         elif command == 'config':
-            print(json.dumps(self.get_container_config(), indent=2))
+            six.print_(json.dumps(self.get_container_config(), indent=2))
 
         elif command == 'dir':
-            print(self.get_container_directory())
+            six.print_(self.get_container_directory())
 
         elif command == 'log':
             result = ssh_command('tail', '-n', '100000', self.get_log_files(args))
 
-            print(result.decode('utf-8'))
+            six.print_(result.decode('utf-8'))
 
         elif command == 'restart':
             self.restart_container()
@@ -190,7 +198,7 @@ class DockerCommand(Command):
             ssh_command_interactive('tail', '-F', self.get_log_files(args))
 
         elif command == 'volumes':
-            print(json.dumps(self.get_container_config().get('Volumes', {}), indent=2))
+            six.print_(json.dumps(self.get_container_config().get('Volumes', {}), indent=2))
 
         else:
             raise NotImplementedError('Unknown command')
@@ -261,17 +269,17 @@ class DockerCommand(Command):
     def restart_container(self):
         result = ssh_command('docker restart %s' % self.get_docker_id())
 
-        print(result)
+        six.print_(result)
 
     def start_container(self):
         result = ssh_command('docker start %s' % self.get_docker_id())
 
-        print(result)
+        six.print_(result)
 
     def stop_container(self):
         result = ssh_command('docker stop %s' % self.get_docker_id())
 
-        print(result)
+        six.print_(result)
 
 
 class AstuteDockerCommand(DockerCommand):
@@ -285,6 +293,10 @@ Admin token is stored in /etc/fuel/astute.yaml on Fuel Main.
 
     def get_log_directory(self):
         return '/var/log/docker-logs/astute'
+
+
+class HorizonDockerCommand(DockerCommand):
+    container = 'horizon'
 
 
 class KeystoneDockerCommand(DockerCommand):
@@ -371,7 +383,7 @@ class NginxDockerCommand(DockerCommand):
     def build_grunt_static(self, source_dir):
         cwd = os.path.join(source_dir, 'nailgun')
 
-        print('Building grunt static in %s, temporary static dir is: %s...' % (
+        six.print_('Building grunt static in %s, temporary static dir is: %s...' % (
             cwd,
             self.temporary_build_dir
             ))
@@ -389,10 +401,10 @@ class NginxDockerCommand(DockerCommand):
                 cmd
             ], shell=True)
 
-            print(result)
+            six.print_(result)
         except CalledProcessError as e:
-            print('GRUNT ERROR')
-            print(e.output)
+            six.print_('GRUNT ERROR')
+            six.print_(e.output)
             raise
 
 
@@ -403,6 +415,10 @@ class PostgreSQLDockerCommand(DockerCommand):
         return ssh_command_interactive(
             'dockerctl', 'shell', self.get_docker_id(), 'su - postgres -c "psql -d nailgun"'
         )
+
+
+class RabbitMQDockerCommand(DockerCommand):
+    container = 'rabbitmq'
 
 
 class PuppetCommand(Command):
@@ -421,9 +437,19 @@ class PuppetCommand(Command):
 
         self.base_rsync(source, target)
 
+        # synchronize keystone container
+        for klass in DockerCommand.__subclasses__():
+            six.print_(klass.container)
+            executor = klass()
 
-class RabbitMQDockerCommand(DockerCommand):
-    container = 'rabbitmq'
+            try:
+                target_path = os.path.join(executor.get_container_directory(), 'rootfs', 'etc', 'puppet', 'modules')
+            except DockerError as e:
+                six.print_(e)
+                continue
+            target = 'root@%s:%s' % (IP, target_path)
+
+            self.base_rsync(source, target)
 
 
 def execute_puppet_command(args):
@@ -443,12 +469,8 @@ def handle_args(args):
 
         container = args.container or DEFAULT_CONTAINER
 
-        for klass in DockerCommand.__subclasses__():
-            if container == klass.container:
-                executor = klass()
-                break
-        else:
-            raise NotImplementedError('Unsupported Docker container')
+        klass = DockerCommand.get_docker_command_by_container(container)
+        executor = klass()
 
         executor.execute(subcommand, args)
 
