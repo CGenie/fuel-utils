@@ -295,10 +295,6 @@ Admin token is stored in /etc/fuel/astute.yaml on Fuel Main.
         return '/var/log/docker-logs/astute'
 
 
-class HorizonDockerCommand(DockerCommand):
-    container = 'horizon'
-
-
 class KeystoneDockerCommand(DockerCommand):
     container = 'keystone'
 
