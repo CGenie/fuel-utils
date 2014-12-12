@@ -269,17 +269,17 @@ class DockerCommand(Command):
     def restart_container(self):
         result = ssh_command('docker restart %s' % self.get_docker_id())
 
-        six.print_(result)
+        print_verbose(result)
 
     def start_container(self):
         result = ssh_command('docker start %s' % self.get_docker_id())
 
-        six.print_(result)
+        print_verbose(result)
 
     def stop_container(self):
         result = ssh_command('docker stop %s' % self.get_docker_id())
 
-        six.print_(result)
+        print_verbose(result)
 
 
 class AstuteDockerCommand(DockerCommand):
