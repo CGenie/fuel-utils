@@ -117,7 +117,15 @@ def send_identity():
         contents = f.read()
 
     result = ssh_command("echo '%s' >> ~/.ssh/authorized_keys" % contents)
+    print_verbose(result)
 
+    # And while we're here, let's fix /etc/hosts for which 10.20.0.2 points to some non-existing domain
+    # (with misconfigured reverse-DNS lookups each SSH connection can be quite slow)
+    result = ssh_command("sed -i 's/^%(IP)s.*/%(IP)s localhost/' /etc/hosts" % {'IP': IP})
+    print_verbose(result)
+
+    # Need to restart after /etc/hosts change
+    result = ssh_command('service sshd restart')
     print_verbose(result)
 
     return result
