@@ -333,7 +333,7 @@ class NailgunDockerCommand(DockerCommand):
     def get_log_directory(self):
         return '/var/log/docker-logs/nailgun'
 
-    def perform_docker_rsync(self, args):
+    def perform_docker_nailgun_rsync(self, args):
         source_dir = args.source
 
         source_path = 'nailgun/nailgun/'
@@ -347,7 +347,23 @@ class NailgunDockerCommand(DockerCommand):
         source = os.path.join(source_dir, source_path)
         target = 'root@%s:%s' % (IP, os.path.join(base_target_dir, target_path))
 
-        self.base_docker_rsync(source, target)
+        self.base_rsync(source, target)
+
+    def perform_docker_fuelclient_rsync(self, args):
+        source_dir = args.source
+
+        source_path = 'fuelclient/fuelclient/'
+        target_path = '/usr/lib/python2.6/site-packages/fuelclient'
+
+        source = os.path.join(source_dir, source_path)
+        target = 'root@%s:%s' % (IP, target_path)
+
+        self.base_rsync(source, target)
+
+    def perform_docker_rsync(self, args):
+        self.perform_docker_nailgun_rsync(args)
+        self.perform_docker_fuelclient_rsync(args)
+        self.post_docker_rsync()
 
     def perform_docker_rsync_static(self, args):
         nginx_command = NginxDockerCommand()
@@ -358,6 +374,7 @@ class NailgunDockerCommand(DockerCommand):
         args = self.base_rsync_args
 
         args.append('--exclude=*.pyc')
+        args.append('--exclude=test')
 
         return args
 
