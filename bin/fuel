@@ -303,19 +303,34 @@ Admin token is stored in /etc/fuel/astute.yaml on Fuel Main.
         return '/var/log/docker-logs/astute'
 
 
+class CobblerDockerCommand(DockerCommand):
+    container = 'cobbler'
+
+    @classmethod
+    def get_info(cls):
+        return """
+Go to https://%(IP)s/cobbler_web for the web interface (see /etc/fuel/astute.yaml
+for username/password).
+        """ % {'IP': IP}
+
+    def get_log_directory(self):
+        return '/var/log/docker-logs/cobbler'
+
+
 class KeystoneDockerCommand(DockerCommand):
     container = 'keystone'
 
     @classmethod
     def get_info(cls):
-        return """Authorize using cURL:
+        return """
+Authorize using cURL:
 curl -i 'http://%(IP)s:5000/v2.0/tokens' -X POST -H "Content-Type: application/json" -H "Accept: application/json"  -d '{"auth": {"tenantName": "admin", "passwordCredentials": {"username": "admin", "password": "admin"}}}'
 List tenants using the token:
 curl -i -X GET http://%(IP)s:35357/v2.0/tenants -H "User-Agent: python-keystoneclient" -H "X-Auth-Token: token"
 
 Admin password change:
 keystone --os-endpoint=http://10.20.0.2:35357/v2.0 --os-token=admin_token password-update
-        """ % {'IP': IP}
+""" % {'IP': IP}
 
 
 class McollectiveDockerCommand(DockerCommand):
