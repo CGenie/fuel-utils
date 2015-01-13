@@ -4,7 +4,7 @@ import argparse
 import json
 import os
 import six
-from subprocess import call, check_output, CalledProcessError, STDOUT
+from subprocess import check_output, CalledProcessError, STDOUT
 import sys
 
 
@@ -29,8 +29,14 @@ class DockerError(Exception):
 class SSHError(Exception):
     pass
 
+
+class OptionsConflictError(Exception):
+    pass
+
+
 class UnknownCommand(Exception):
     pass
+
 
 
 def print_verbose(*args):
@@ -67,6 +73,24 @@ def print_info():
         six.print_('')
 
 
+def node_command(args):
+    print_verbose("COMMAND: %r" % args)
+    commands = ['VBoxManage']
+
+    if args.start and args.stop:
+        raise OptionsConflictError(
+            'Only one of Start/Stop options allowed in same time')
+    elif args.start:
+        commands.extend(['startvm', args.name])
+    elif args.stop:
+        commands.extend(['controlvm', args.name, 'savestate'])
+
+    if not args.headlessoff:
+        commands.extend(['--type', 'headless'])
+
+    return check_output(commands).strip()
+
+
 def ssh_command(*args):
     global SSH_PASSWORD_CHECKED
 
@@ -88,7 +112,7 @@ def ssh_command(*args):
                     six.u(e.output).decode('utf-8').lower():
                 # .ssh/known_hosts error
                 raise SSHError(e.output)
-                
+
             # Exit code error -- send .pub key to host
             send_identity()
 
@@ -522,6 +546,9 @@ def handle_args(args):
     elif command == 'ssh':
         ssh_command_interactive()
 
+    elif command == 'node':
+        node_command(args)
+
     else:
         raise UnknownCommand('Unknown command')
 
@@ -565,7 +592,7 @@ if __name__ == '__main__':
     add_global_arguments(parser)
 
     command = parser.add_subparsers(
-        title='command', 
+        title='command',
         description='Command to execute',
         dest='command'
     )
@@ -607,6 +634,35 @@ if __name__ == '__main__':
         help='Puppet manipulation'
     )
     add_global_arguments(puppet)
+
+    node = command.add_parser(
+        'node',
+        help='Virtualbox node manipulation'
+    )
+    node.add_argument(
+        '--start',
+        help='Start VM',
+        default=False,
+        action='store_true'
+    )
+    node.add_argument(
+        '--stop',
+        help='Stop VM',
+        default=False,
+        action='store_true'
+    )
+    node.add_argument(
+        '--name', '-n',
+        help='VM name for working with',
+        default='fuel-master',
+        type=str
+    )
+    node.add_argument(
+        '--headlessoff',
+        help='Switch off VM headless mode',
+        default=False,
+        action='store_true'
+    )
 
     docker_subcommand = docker.add_subparsers(
         title='subcommand',
