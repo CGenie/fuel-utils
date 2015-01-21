@@ -182,3 +182,4 @@ Specify the rsync source directory
 * After ISO rebuild error is thrown about `.ssh/known_hosts` -- detect it and fix automatically to minimize user pain.
 * Better error reporting about wrong command, no SSH ID file, etc
 * make `fuel-docker`, `fuel-puppet` scripts and move appropriate `fuel` functionality there -- just like in `git`
+* add support for custom, per-command options (for example AstuteDockerCommand could have a 'get-config' command to print out the yaml file)
