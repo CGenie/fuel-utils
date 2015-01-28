@@ -541,12 +541,16 @@ class PuppetCommand(Command):
     # This is not a container really, we just fit it in this schema
     container = 'puppet'
 
+    def get_puppet_directory(self):
+        return ssh_command(
+            'ls', '/etc/puppet'
+        )[0]
+
     def rsync(self, args):
         source_dir = args.source
 
         source_path = 'deployment/puppet/'
-        # TODO: do something about hardcoded '2014.2-6.0' string
-        target_path = '/etc/puppet/2014.2-6.0/modules'
+        target_path = self.get_puppet_directory()
 
         source = os.path.join(source_dir, source_path)
         target = 'root@%s:%s' % (IP, target_path)
