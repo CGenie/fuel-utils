@@ -169,6 +169,13 @@ class Command(object):
     def base_rsync_args(self):
         return ['-a', '-v', '-z', '-e', 'ssh']
 
+    def base_scp(self, source, target):
+        six.print_('SCP: %s --> %s' % (source, target))
+
+        result = check_output(
+            ['scp', source, target]
+        )
+
     def rsync_args(self):
         return self.base_rsync_args
 
@@ -329,8 +336,54 @@ class AstuteDockerCommand(DockerCommand):
 Admin token is stored in /etc/fuel/astute.yaml on Fuel Main.
         """
 
+    gemspec = 'astute.gemspec'
+    gemfile = 'astute-6.0.0.gem'
+
     def get_log_directory(self):
         return '/var/log/docker-logs/astute'
+
+    def build_gem(self, source_dir):
+        cmd = (
+            'cd %(cwd)s && '
+            'gem build %(gemspec)s'
+        ) % {
+            'cwd': source_dir,
+            'gemspec': self.gemspec,
+        }
+
+        try:
+            result = check_output([
+                cmd
+            ], shell=True)
+
+            six.print_(result)
+        except CalledProcessError as e:
+            six.print_('GEM BUILD ERROR')
+            six.print_(e.output)
+            raise
+
+    def perform_docker_rsync(self, args):
+        source_dir = args.source
+
+        self.build_gem(source_dir)
+
+        target_path = 'tmp/'
+
+        base_target_dir = os.path.join(
+            self.get_container_directory(),
+            'rootfs'
+        )
+
+        source = os.path.join(source_dir, self.gemfile)
+        target = 'root@%s:%s' % (IP, os.path.join(base_target_dir, target_path))
+
+        self.base_scp(source, target)
+
+        target = os.path.join('/', target_path, self.gemfile)
+
+        self.container_shell_command('gem install', '--local', target)
+
+        self.post_docker_rsync()
 
 
 class CobblerDockerCommand(DockerCommand):
