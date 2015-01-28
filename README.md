@@ -97,6 +97,14 @@ Rsync directory into the container (default: current working dir)
 
 Specify the rsync source directory
 
+### `rsync-client`
+
+Rsync Fuel client directory into the container (default: current working dir)
+
+###### `--source`, `-s`
+
+Specify the rsync source directory
+
 ### `rsync-static`
 
 Rsync static files into the container (default: current working dir)

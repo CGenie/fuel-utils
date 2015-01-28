@@ -65,7 +65,7 @@ def print_info():
 
     classes = DockerCommand.__subclasses__()
     for klass in sorted(classes, key=lambda k: k.__name__):
-        six.print_('-'*20)
+        six.print_('-' * 20)
         six.print_(klass.container.title())
         if hasattr(klass, 'get_info'):
             six.print_(klass.get_info())
@@ -211,6 +211,9 @@ class DockerCommand(Command):
         elif command == 'rsync':
             self.perform_docker_rsync(args)
 
+        elif command == 'rsync-client':
+            self.perform_docker_rsync_client(args)
+
         elif command == 'rsync-static':
             self.perform_docker_rsync_static(args)
 
@@ -292,6 +295,9 @@ class DockerCommand(Command):
     def perform_docker_rsync(self, source, args):
         raise NotImplementedError('rsync method not implemented')
 
+    def perform_docker_rsync_client(self, source, args):
+        raise NotImplementedError('rsync-client method not implemented')
+
     def perform_docker_rsync_static(self, source, args):
         raise NotImplementedError('rsync-static method not implemented')
 
@@ -365,9 +371,7 @@ class NailgunDockerCommand(DockerCommand):
     container = 'nailgun'
 
     def container_shell(self):
-        return ssh_command_interactive(
-            'dockerctl', 'shell', self.get_docker_id(), 'python'
-        )
+        return self.container_shell_command('python')
 
     def get_log_directory(self):
         return '/var/log/docker-logs/nailgun'
@@ -388,21 +392,20 @@ class NailgunDockerCommand(DockerCommand):
 
         self.base_rsync(source, target)
 
-    def perform_docker_fuelclient_rsync(self, args):
+    def perform_docker_rsync(self, args):
+        self.perform_docker_nailgun_rsync(args)
+        self.post_docker_rsync()
+
+    def perform_docker_rsync_client(self, args):
         source_dir = args.source
 
-        source_path = 'fuelclient/fuelclient/'
+        source_path = 'fuelclient/'
         target_path = '/usr/lib/python2.6/site-packages/fuelclient'
 
         source = os.path.join(source_dir, source_path)
         target = 'root@%s:%s' % (IP, target_path)
 
         self.base_rsync(source, target)
-
-    def perform_docker_rsync(self, args):
-        self.perform_docker_nailgun_rsync(args)
-        self.perform_docker_fuelclient_rsync(args)
-        self.post_docker_rsync()
 
     def perform_docker_rsync_static(self, args):
         nginx_command = NginxDockerCommand()
@@ -712,6 +715,19 @@ if __name__ == '__main__':
     )
     add_global_arguments(docker_subcommand_rsync)
     docker_subcommand_rsync.add_argument(
+        '--source', '-s',
+        type=str,
+        nargs='?',
+        default='.',
+        help='Source of the rsync directory'
+    )
+
+    docker_subcommand_rsync_client = docker_subcommand.add_parser(
+        'rsync-client',
+        help='Rsync Fuel client\'s source directory into container'
+    )
+    add_global_arguments(docker_subcommand_rsync_client)
+    docker_subcommand_rsync_client.add_argument(
         '--source', '-s',
         type=str,
         nargs='?',
