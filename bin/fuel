@@ -426,6 +426,15 @@ class NailgunDockerCommand(DockerCommand):
     def container_shell(self):
         return self.container_shell_command('python')
 
+    @classmethod
+    def get_info(cls):
+        return """
+If you login to the shell you have the possibility to reset the database
+with commands
+/usr/bin/nailgun_syncdb
+/usr/bin/naligun_fixtures
+        """
+
     def get_log_directory(self):
         return '/var/log/docker-logs/nailgun'
 
