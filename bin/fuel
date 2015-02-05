@@ -553,7 +553,7 @@ class PuppetCommand(Command):
     def get_puppet_directory(self):
         ROOT_PATH = '/etc/puppet'
 
-        return os.path.join(
+        return '%s/modules/' % os.path.join(
             ROOT_PATH,
             ssh_command(
                 'ls', ROOT_PATH
