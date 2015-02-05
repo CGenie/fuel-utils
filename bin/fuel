@@ -551,9 +551,13 @@ class PuppetCommand(Command):
     container = 'puppet'
 
     def get_puppet_directory(self):
-        return ssh_command(
-            'ls', '/etc/puppet'
-        )[0]
+        ROOT_PATH = '/etc/puppet'
+
+        return os.path.join(
+            ROOT_PATH,
+            ssh_command(
+                'ls', ROOT_PATH
+            ).split('\n')[0])
 
     def rsync(self, args):
         source_dir = args.source
