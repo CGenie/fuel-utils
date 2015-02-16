@@ -253,13 +253,20 @@ class DockerCommand(Command):
     def container_shell(self):
         return self.container_shell_command()
 
-    def get_docker_id(self):
+    def get_docker_id(self, get_exited=False):
         up = ssh_command('docker ps -a | grep -i %s | grep Up | cut -f 1 -d " "' % self.container).decode('utf-8')
 
         print_verbose('FOUND CONTAINERS: %r' % up)
 
-        if not up:
-            raise DockerError("Container '%s' not found or not functional" % self.container)
+        if not up and get_exited:
+            print_verbose('Container not Up, trying Exited')
+
+            up = ssh_command('docker ps -a | grep -i %s | grep Exited | cut -f 1 -d " "' % self.container).decode('utf-8')
+
+            print_verbose('FOUND CONTAINERS: %r' % up)
+
+            if not up:
+                raise DockerError("Container '%s' not found or not functional" % self.container)
 
         return up
 
@@ -312,12 +319,12 @@ class DockerCommand(Command):
         self.restart_container()
 
     def restart_container(self):
-        result = ssh_command('docker restart %s' % self.get_docker_id())
+        result = ssh_command('docker restart %s' % self.get_docker_id(get_exited=True))
 
         print_verbose(result)
 
     def start_container(self):
-        result = ssh_command('docker start %s' % self.get_docker_id())
+        result = ssh_command('docker start %s' % self.get_docker_id(get_exited=True))
 
         print_verbose(result)
 
