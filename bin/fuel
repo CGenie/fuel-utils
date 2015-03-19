@@ -1,5 +1,8 @@
 #!/usr/bin/env python
 
+# On the dockerctl command -- read more at
+# http://docs.mirantis.com/openstack/fuel/fuel-6.0/operations.html#dockerctl
+
 import argparse
 import json
 import os
@@ -564,7 +567,7 @@ class PuppetCommand(Command):
             ROOT_PATH,
             ssh_command(
                 'ls', ROOT_PATH
-            ).split('\n')[0])
+            ).decode('utf-8').split('\n')[0])
 
     def rsync(self, args):
         source_dir = args.source
