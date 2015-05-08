@@ -1,6 +1,8 @@
 fuel-utils
 ==========
 
+_NOTE_: This repo is now deprecated in favor of https://github.com/stackforge/fuel-dev-tools
+
 Utilities to make it easier to work &amp; develop with Mirantis Fuel.
 
 Set up your Fuel environment from ISO as described here for example http://samuraiincloud.com/2014/08/13/building-openstack-icehouse-in-virtualbox-in-60-minutes-using-mirantis-fuel-2/
